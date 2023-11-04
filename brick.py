@@ -9,4 +9,4 @@ class Brick:
         self.COLOR = color
 
     def draw(self) -> None:
-        self.brick = rect(self.surf, self.COLOR, (self.X, self.Y, 64, 32))
+        self.brick = rect(self.surf, self.COLOR, (self.X, self.Y, 64, 32), width=2)
