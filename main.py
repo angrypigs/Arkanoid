@@ -1,6 +1,7 @@
 import pygame
 import os
 import sys
+from cryptography.fernet import Fernet
 from math import atan, pi
 from ball import Ball
 from pad import Pad
@@ -10,21 +11,30 @@ from brick import Brick
 class Game:
 
     def __init__(self) -> None:
+        # init constants and variables
         self.WIDTH = 1000
         self.HEIGHT = 700
+        self.KEY = b'1fM3z8hZKFlNgF5UAKpIjEkeU3SDxPenJP725BN-V9Q='
+        self.fernet = Fernet(self.KEY)
         self.run = True
         self.balls : list[Ball] = []
         self.bricks : list[list[Brick|None]] = [[None for x in range(14)] for y in range(10)]
+        # init pygame window
         pygame.init()
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
         pygame.display.set_caption("Arkanoid")
         self.clock = pygame.time.Clock()
+        self.init_images()
+        with open(self.res_path("levels\\level3.dat"), "rb") as f:
+            for line in f.readlines():
+                print(self.fernet.decrypt(line).decode())
+        # add ball, pad and bricks
         self.balls.append(Ball(self.screen, (130, 130, 170), 8, 100, 500, 80))
         self.pad = Pad(self.screen, 150, 20, (150, 150, 110), self.HEIGHT/9*8)
-        self.init_images()
         for i in range(10):
             for j in range(14):
                 self.bricks[i][j] = Brick(self.screen, 52+j*64, 52+i*32, (150, 150, 90))
+        # game loop
         while self.run:
             self.screen.fill((0, 0, 0))
             for event in pygame.event.get():
@@ -38,6 +48,9 @@ class Game:
             self.clock.tick(120)
         
     def res_path(self, rel_path: str) -> str:
+        """
+        Return path to file modified by auto_py_to_exe path if packed to exe already
+        """
         try:
             base_path = sys._MEIPASS
         except Exception:
@@ -45,6 +58,7 @@ class Game:
         return os.path.join(base_path, rel_path)
 
     def draw_balls_and_bricks(self) -> None:
+        # draw all balls and bricks from lists
         for ball in self.balls:
             ball.draw(1)
         for row in range(10):
@@ -52,7 +66,9 @@ class Game:
                 if self.bricks[row][col]!=None: self.bricks[row][col].draw()
 
     def balls_collisions(self) -> None:
+        """ check for collision of every ball with walls, pad and all bricks """
         for ball in self.balls:
+            # pad collision
             if ball.ball.colliderect(self.pad.pad):
                 offset = (ball.coords[0]-self.mouse_x)/self.pad.WIDTH
                 angle = atan(ball.power[1]/ball.power[0])
@@ -61,12 +77,14 @@ class Game:
                 ball.power.rotate_ip(180*min(max(offset+angle2, -0.5), 0.5))
                 ball.coords += ball.power*3
                 ball.coords[1] -= 5
+            # walls collision
             if ball.radius>=ball.coords[0] or ball.coords[0]>=self.WIDTH-ball.radius:
                 ball.power[0] *= -1
                 ball.coords += ball.power*2
             if ball.radius>=ball.coords[1] or ball.coords[1]>=self.HEIGHT-ball.radius:
                 ball.power[1] *= -1
                 ball.coords += ball.power*2
+            # bricks collision
             for row in range(10):
                 for col in range(14):
                     brick = self.bricks[row][col]
@@ -93,6 +111,7 @@ class Game:
                             break
     
     def init_images(self) -> None:
+        """Import game images to dict"""
         self.images = {"bricks": []}
         for img in os.listdir(self.res_path("assets\\bricks")):
             self.images["bricks"].append(img)
