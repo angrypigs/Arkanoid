@@ -25,15 +25,10 @@ class Game:
         pygame.display.set_caption("Arkanoid")
         self.clock = pygame.time.Clock()
         self.init_images()
-        with open(self.res_path("levels\\level3.dat"), "rb") as f:
-            for line in f.readlines():
-                print(self.fernet.decrypt(line).decode())
         # add ball, pad and bricks
         self.balls.append(Ball(self.screen, (130, 130, 170), 8, 100, 500, 80))
         self.pad = Pad(self.screen, 150, 20, (150, 150, 110), self.HEIGHT/9*8)
-        for i in range(10):
-            for j in range(14):
-                self.bricks[i][j] = Brick(self.screen, 52+j*64, 52+i*32, (150, 150, 90))
+        self.load_level(1)
         # game loop
         while self.run:
             self.screen.fill((0, 0, 0))
@@ -56,6 +51,26 @@ class Game:
         except Exception:
             base_path = sys.path[0]
         return os.path.join(base_path, rel_path)
+
+    def load_level(self, level: int) -> None:
+        brick_list = [[(1 if i%2==0 else 6) for i in range(14)], 
+                      [9 for i in range(14)],
+                      [10 for i in range(14)],
+                      [11 for i in range(14)],
+                      [12 for i in range(14)],
+                      [0 for i in range(14)],
+                      [(0 if i%2==0 else 6) for i in range(14)]]
+        for i in range(3):
+            brick_list.append([0 for i in range(14)])
+        # with open(self.res_path(f"levels\\level{level}.dat"), "rb") as f:
+        #     for line in f.readlines():
+        #         brick_list = [x.split(":") for x in self.fernet.decrypt(self.KEY).decode().split(";")]
+        # for i in brick_list:
+        #     print(i)
+        for i in range(10):
+            for j in range(14):
+                if brick_list[i][j]:
+                    self.bricks[i][j] = Brick(self.screen, 52+j*64, 52+i*32, brick_list[i][j], self.images["bricks"][brick_list[i][j]])
 
     def draw_balls_and_bricks(self) -> None:
         # draw all balls and bricks from lists
@@ -89,24 +104,25 @@ class Game:
                 for col in range(14):
                     brick = self.bricks[row][col]
                     if brick != None and ball.ball.colliderect(brick.brick):
+                        flag = False
                         if abs(ball.ball.bottom-brick.brick.top)<5 and ball.power[1]>0:
                             ball.power[1] *= -1
-                            self.bricks[row][col] = None
-                            ball.coords += ball.power
-                            break
+                            flag = True
                         elif abs(ball.ball.top-brick.brick.bottom)<5 and ball.power[1]<0:
                             ball.power[1] *= -1
-                            self.bricks[row][col] = None
-                            ball.coords += ball.power
-                            break
-                        elif abs(ball.ball.right-brick.brick.left)<5 and ball.power[0]>0:
+                            flag = True
+                        if abs(ball.ball.right-brick.brick.left)<5 and ball.power[0]>0:
                             ball.power[0] *= -1
-                            self.bricks[row][col] = None
-                            ball.coords += ball.power
-                            break
+                            flag = True
                         elif abs(ball.ball.left-brick.brick.right)<5 and ball.power[0]<0:
                             ball.power[0] *= -1
-                            self.bricks[row][col] = None
+                            flag = True
+                        if flag:
+                            if brick.index in [1, 2, 3, 4, 5, 12]:
+                                self.bricks[row][col] = None
+                            elif brick.index in [9, 10, 11]:
+                                brick.index += 1
+                                brick.image = self.images["bricks"][brick.index]
                             ball.coords += ball.power
                             break
     
@@ -116,7 +132,10 @@ class Game:
         for img in os.listdir(self.res_path("assets\\bricks")):
             self.images["bricks"].append(img)
         self.images["bricks"] = sorted(self.images["bricks"], key=lambda x: int(x.lstrip("brick").rstrip(".png")))
-        print(self.images["bricks"])
+        self.images["bricks"].insert(0, None)
+        for i, img in enumerate(self.images["bricks"]):
+            if img!=None:
+                self.images["bricks"][i] = pygame.image.load(self.res_path(f"assets\\bricks\\{img}"))
 
 
 

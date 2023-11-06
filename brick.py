@@ -1,12 +1,15 @@
 from pygame.draw import rect
+from pygame import Rect
 
 class Brick:
 
-    def __init__(self, surf, x: int, y: int, color: tuple) -> None:
+    def __init__(self, surf, x: int, y: int, index: int, image) -> None:
         self.surf = surf
         self.X = x
         self.Y = y
-        self.COLOR = color
+        self.image = image
+        self.index = index
 
     def draw(self) -> None:
-        self.brick = rect(self.surf, self.COLOR, (self.X, self.Y, 64, 32), width=2)
+        self.brick = Rect(self.X, self.Y, 64, 32)
+        self.surf.blit(self.image, (self.X, self.Y))
