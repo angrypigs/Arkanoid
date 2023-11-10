@@ -2,7 +2,7 @@ import pygame
 import os
 import sys
 from cryptography.fernet import Fernet
-from math import atan, pi
+from math import atan, pi, sqrt
 from random import choice
 from ball import Ball
 from pad import Pad
@@ -16,13 +16,13 @@ class Game:
         self.WIDTH = 1000
         self.HEIGHT = 700
         self.ROWS = 10
-        self.COLS = 14
+        self.COLS = 15
         self.KEY = b'1fM3z8hZKFlNgF5UAKpIjEkeU3SDxPenJP725BN-V9Q='
         self.fernet = Fernet(self.KEY)
         self.run = True
         self.pause = True
         self.balls : list[Ball] = []
-        self.bricks : list[list[Brick|None]] = [[None for x in range(14)] for y in range(10)]
+        self.bricks : list[list[Brick|None]] = [[None for x in range(self.COLS)] for y in range(self.ROWS)]
         # init pygame window
         pygame.init()
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
@@ -30,10 +30,10 @@ class Game:
         self.clock = pygame.time.Clock()
         self.init_images()
         # add ball, pad and bricks
-        self.balls.append(Ball(self.screen, (130, 130, 170), 8, self.WIDTH//2, 600, -60))
+        self.balls.append(Ball(self.screen, (130, 130, 170), 12, self.WIDTH//2, 600, -60))
         self.pad = Pad(self.screen, 150, 20, (150, 150, 110), self.HEIGHT/9*8)
         self.pad_x = self.WIDTH//2
-        self.load_level(4)
+        self.load_level(1)
         # main loop
         while self.run:
             self.screen.fill((0, 0, 0))
@@ -44,8 +44,8 @@ class Game:
                     self.pause = not self.pause
             self.mouse_x, self.mouse_y = pygame.mouse.get_pos()
             if not self.pause: self.pad_x = self.mouse_x
-            self.pad.draw(pygame.math.clamp(self.pad_x, 75, self.WIDTH-75))
-            self.draw_balls_and_bricks()
+            self.pad.draw(pygame.math.clamp(self.pad_x, 95, self.WIDTH-95))
+            self.draw_game()
             self.balls_collisions()
             pygame.display.flip()
             self.clock.tick(120)
@@ -61,16 +61,19 @@ class Game:
         return os.path.join(base_path, rel_path)
 
     def load_level(self, level: int) -> None:
-        with open(self.res_path(f"levels\\level{level}.dat"), "rb") as f:
+        with open(self.res_path(os.path.join("levels", f"level{level}.dat")), "rb") as f:
             for line in f.readlines():
                 brick_list = [[int(y) for y in x.split(":")] for x in self.fernet.decrypt(line).decode().split(";")]
+        for i in brick_list:
+            print(i)
         for i in range(self.ROWS):
             for j in range(self.COLS):
                 if brick_list[i][j]:
-                    self.bricks[i][j] = Brick(self.screen, 52+j*64, 52+i*32, brick_list[i][j], self.images["bricks"][brick_list[i][j]])
+                    self.bricks[i][j] = Brick(self.screen, 20+j*64, 50+i*32, brick_list[i][j], self.images["bricks"][brick_list[i][j]])
 
-    def draw_balls_and_bricks(self) -> None:
-        # draw all balls and bricks from lists
+    def draw_game(self) -> None:
+        # draw game components
+        self.screen.blit(self.images["game_gui"], (0, 0))
         for ball in self.balls:
             ball.draw(not self.pause)
         for row in range(self.ROWS):
@@ -91,31 +94,40 @@ class Game:
                 ball.coords += ball.power*3
                 ball.coords[1] -= 5
             # walls collision
-            if ball.radius>=ball.coords[0] or ball.coords[0]>=self.WIDTH-ball.radius:
+            if ball.radius+30>=ball.coords[0] or ball.coords[0]>=self.WIDTH-ball.radius-30:
                 ball.power[0] *= -1
                 ball.coords += ball.power*2
-            if ball.radius>=ball.coords[1] or ball.coords[1]>=self.HEIGHT-ball.radius:
+            if ball.radius+60>=ball.coords[1] or ball.coords[1]>=self.HEIGHT-ball.radius:
                 ball.power[1] *= -1
                 ball.coords += ball.power*2
             # bricks collision
+            # a, b = int(ball.coords[0]-20)//64, int(ball.coords[1]-50)//32
+            # cells = [[x, y] for x in range(a-1, a+2) for y in range(b-2, b+3) if
+            #          0<=x<self.ROWS and 0<=y<self.COLS and]
             for row in range(self.ROWS):
                 for col in range(self.COLS):
                     brick = self.bricks[row][col]
-                    if brick != None and ball.ball.colliderect(brick.brick):
-                        flag = False
-                        if abs(ball.ball.bottom-brick.brick.top)<5 and ball.power[1]>0:
-                            ball.power[1] *= -1
-                            flag = True
-                        elif abs(ball.ball.top-brick.brick.bottom)<5 and ball.power[1]<0:
-                            ball.power[1] *= -1
-                            flag = True
-                        if abs(ball.ball.right-brick.brick.left)<5 and ball.power[0]>0:
-                            ball.power[0] *= -1
-                            flag = True
-                        elif abs(ball.ball.left-brick.brick.right)<5 and ball.power[0]<0:
-                            ball.power[0] *= -1
-                            flag = True
-                        if flag:
+                    if brick != None:
+                        circle_closest_x = max(brick.X, min(ball.coords[0], brick.X + 64))
+                        circle_closest_y = max(brick.Y, min(ball.coords[1], brick.Y + 32))
+                        dist = sqrt((ball.coords[0] - circle_closest_x) ** 2 + (ball.coords[1] - circle_closest_y) ** 2)
+                        if dist < ball.radius:
+                            overlap_x = circle_closest_x - ball.coords[0]
+                            overlap_y = circle_closest_y - ball.coords[1]
+                            if abs(overlap_x) < abs(overlap_y):
+                                if overlap_y > 0 and ball.power[1]>0:
+                                    ball.ball.bottom = brick.brick.top
+                                    ball.power[1] *= -1
+                                elif overlap_y < 0 and ball.power[1]<0:
+                                    ball.ball.top = brick.brick.bottom
+                                    ball.power[1] *= -1
+                            else:
+                                if overlap_x > 0 and ball.power[0]>0:
+                                    ball.ball.right = brick.brick.left
+                                    ball.power[0] *= -1
+                                elif overlap_x < 0 and ball.power[0]<0:
+                                    ball.ball.left = brick.brick.right
+                                    ball.power[0] *= -1
                             if brick.index in [1, 2, 3, 4, 5, 12]:
                                 self.bricks[row][col] = None
                             elif brick.index in [9, 10, 11]:
@@ -129,18 +141,18 @@ class Game:
                                 for i in [x for x in [[row, col-1], [row, col+1], [row-1, col], [row+1, col]]
                                           if 0<=x[0]<self.ROWS and 0<=x[1]<self.COLS and self.bricks[x[0]][x[1]]!=None]:
                                     self.bricks[i[0]][i[1]] = None
-                            ball.coords += ball.power*2
     
     def init_images(self) -> None:
         """Import game images to dict"""
         self.images = {"bricks": []}
-        for img in os.listdir(self.res_path("assets\\bricks")):
+        self.images["game_gui"] = pygame.image.load(self.res_path(os.path.join("assets/gui", "game_gui.png")))
+        for img in os.listdir(self.res_path(f"assets{os.path.sep}bricks")):
             self.images["bricks"].append(img)
         self.images["bricks"] = sorted(self.images["bricks"], key=lambda x: int(x.lstrip("brick").rstrip(".png")))
         self.images["bricks"].insert(0, None)
         for i, img in enumerate(self.images["bricks"]):
             if img!=None:
-                self.images["bricks"][i] = pygame.image.load(self.res_path(f"assets\\bricks\\{img}"))
+                self.images["bricks"][i] = pygame.image.load(self.res_path(os.path.join("assets/bricks", img)))
                 
 
 
