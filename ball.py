@@ -6,7 +6,7 @@ class Ball:
 
     def __init__(self, surf, color: tuple, radius: float, x: int, y: int, angle: int) -> None:
         self.coords = Vector2(x, y)
-        self.speed = 3
+        self.speed = 4
         self.power = Vector2(self.speed, 0).rotate(angle)
         self.COLOR = color
         self.radius = radius

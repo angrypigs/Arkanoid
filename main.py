@@ -30,10 +30,10 @@ class Game:
         self.clock = pygame.time.Clock()
         self.init_images()
         # add ball, pad and bricks
-        self.balls.append(Ball(self.screen, (130, 130, 170), 12, self.WIDTH//2, 600, -60))
+        self.balls.append(Ball(self.screen, (130, 130, 170), 10, self.WIDTH//2, 600, -60))
         self.pad = Pad(self.screen, 150, 20, (150, 150, 110), self.HEIGHT/9*8)
         self.pad_x = self.WIDTH//2
-        self.load_level(1)
+        self.load_level(9)
         # main loop
         while self.run:
             self.screen.fill((0, 0, 0))
@@ -101,46 +101,44 @@ class Game:
                 ball.power[1] *= -1
                 ball.coords += ball.power*2
             # bricks collision
-            # a, b = int(ball.coords[0]-20)//64, int(ball.coords[1]-50)//32
-            # cells = [[x, y] for x in range(a-1, a+2) for y in range(b-2, b+3) if
-            #          0<=x<self.ROWS and 0<=y<self.COLS and]
-            for row in range(self.ROWS):
-                for col in range(self.COLS):
-                    brick = self.bricks[row][col]
-                    if brick != None:
-                        circle_closest_x = max(brick.X, min(ball.coords[0], brick.X + 64))
-                        circle_closest_y = max(brick.Y, min(ball.coords[1], brick.Y + 32))
-                        dist = sqrt((ball.coords[0] - circle_closest_x) ** 2 + (ball.coords[1] - circle_closest_y) ** 2)
-                        if dist < ball.radius:
-                            overlap_x = circle_closest_x - ball.coords[0]
-                            overlap_y = circle_closest_y - ball.coords[1]
-                            if abs(overlap_x) < abs(overlap_y):
-                                if overlap_y > 0 and ball.power[1]>0:
-                                    ball.ball.bottom = brick.brick.top
-                                    ball.power[1] *= -1
-                                elif overlap_y < 0 and ball.power[1]<0:
-                                    ball.ball.top = brick.brick.bottom
-                                    ball.power[1] *= -1
-                            else:
-                                if overlap_x > 0 and ball.power[0]>0:
-                                    ball.ball.right = brick.brick.left
-                                    ball.power[0] *= -1
-                                elif overlap_x < 0 and ball.power[0]<0:
-                                    ball.ball.left = brick.brick.right
-                                    ball.power[0] *= -1
-                            if brick.index in [1, 2, 3, 4, 5, 12]:
-                                self.bricks[row][col] = None
-                            elif brick.index in [9, 10, 11]:
-                                brick.index += 1
-                                brick.image = self.images["bricks"][brick.index]
-                            elif brick.index == 8:
-                                brick.index = choice([1, 2, 3, 4, 5, 7, 9, 10, 11, 12])
-                                brick.image = self.images["bricks"][brick.index]
-                            elif brick.index == 7:
-                                self.bricks[row][col] = None
-                                for i in [x for x in [[row, col-1], [row, col+1], [row-1, col], [row+1, col]]
-                                          if 0<=x[0]<self.ROWS and 0<=x[1]<self.COLS and self.bricks[x[0]][x[1]]!=None]:
-                                    self.bricks[i[0]][i[1]] = None
+            b, a = int(ball.coords[0]-20)//64, int(ball.coords[1]-50)//32
+            cells = [[x, y] for x in range(a-1, a+2) for y in range(b-2, b+3) if
+                     0<=x<self.ROWS and 0<=y<self.COLS and self.bricks[x][y] is not None]
+            for row, col in cells:
+                brick = self.bricks[row][col]
+                circle_closest_x = max(brick.X, min(ball.coords[0], brick.X + 64))
+                circle_closest_y = max(brick.Y, min(ball.coords[1], brick.Y + 32))
+                dist = sqrt((ball.coords[0] - circle_closest_x) ** 2 + (ball.coords[1] - circle_closest_y) ** 2)
+                if dist < ball.radius:
+                    overlap_x = circle_closest_x - ball.coords[0]
+                    overlap_y = circle_closest_y - ball.coords[1]
+                    if abs(overlap_x) < abs(overlap_y):
+                        if overlap_y > 0 and ball.power[1]>0:
+                            ball.ball.bottom = brick.brick.top
+                            ball.power[1] *= -1
+                        elif overlap_y < 0 and ball.power[1]<0:
+                            ball.ball.top = brick.brick.bottom
+                            ball.power[1] *= -1
+                    else:
+                        if overlap_x > 0 and ball.power[0]>0:
+                            ball.ball.right = brick.brick.left
+                            ball.power[0] *= -1
+                        elif overlap_x < 0 and ball.power[0]<0:
+                            ball.ball.left = brick.brick.right
+                            ball.power[0] *= -1
+                    if brick.index in [1, 2, 3, 4, 5, 12]:
+                        self.bricks[row][col] = None
+                    elif brick.index in [9, 10, 11]:
+                        brick.index += 1
+                        brick.image = self.images["bricks"][brick.index]
+                    elif brick.index == 8:
+                        brick.index = choice([1, 2, 3, 4, 5, 7, 9, 10, 11, 12])
+                        brick.image = self.images["bricks"][brick.index]
+                    elif brick.index == 7:
+                        self.bricks[row][col] = None
+                        for i in [x for x in [[row, col-1], [row, col+1], [row-1, col], [row+1, col]]
+                                    if 0<=x[0]<self.ROWS and 0<=x[1]<self.COLS and self.bricks[x[0]][x[1]]!=None]:
+                            self.bricks[i[0]][i[1]] = None
     
     def init_images(self) -> None:
         """Import game images to dict"""
