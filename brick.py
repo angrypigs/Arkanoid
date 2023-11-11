@@ -1,4 +1,3 @@
-from pygame.draw import rect
 from pygame import Rect
 
 class Brick:

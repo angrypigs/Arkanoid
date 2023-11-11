@@ -28,6 +28,7 @@ class Game:
         self.pause = False
         self.game_mode = 2
         self.current_level = 0
+        self.pad_width = 120
         self.balls : list[Ball] = []
         self.bricks : list[list[Brick|None]] = [[None for x in range(self.COLS)] 
                                                 for y in range(self.ROWS)]
@@ -38,7 +39,7 @@ class Game:
         self.clock = pygame.time.Clock()
         self.init_images()
         # add ball and pad
-        self.pad = Pad(self.screen, 150, 20, (150, 150, 110), self.HEIGHT/9*8)
+        self.pad = Pad(self.screen, self.pad_width, 20, (150, 150, 110), self.HEIGHT/9*8, self.images["pads"]["0"]["normal"])
         self.pad_x = self.WIDTH//2
         # main loop
         while self.run:
@@ -59,7 +60,7 @@ class Game:
                 self.load_level(self.current_level)
             self.mouse_x, self.mouse_y = pygame.mouse.get_pos()
             if not self.pause and self.game_mode==1: self.pad_x = self.mouse_x
-            self.pad.draw(pygame.math.clamp(self.pad_x, 95, self.WIDTH-95))
+            self.pad.draw(pygame.math.clamp(self.pad_x, 20+self.pad_width//2, self.WIDTH-20-self.pad_width//2))
             self.draw_game()
             self.balls_collisions()
             pygame.display.flip()
@@ -82,6 +83,7 @@ class Game:
         Thread(target=change, daemon=True).start()
 
     def load_level(self, level: int) -> None:
+        
         with open(self.res_path(os.path.join("levels", f"level{level}.dat")), "rb") as f:
             for line in f.readlines():
                 brick_list = [[int(y) for y in x.split(":")] 
@@ -89,12 +91,13 @@ class Game:
         
         for i in range(self.ROWS):
             for j in range(self.COLS):
+                self.bricks[i][j] = None
                 if brick_list[i][j]:
                     self.bricks[i][j] = Brick(self.screen, 20+j*64, 50+i*32, 
                                               brick_list[i][j], self.images["bricks"][brick_list[i][j]])
         
         self.balls.clear()
-        self.balls.append(Ball(self.screen, (130, 130, 170), 10, self.WIDTH//2, 600, -60))
+        self.balls.append(Ball(self.screen, 10, self.WIDTH//2, 600, -60, self.images["balls"]["normal"]))
 
     def draw_game(self) -> None:
         """Draw game components"""
@@ -110,7 +113,7 @@ class Game:
         """ Check for collision of every ball with walls, pad and all bricks """
         for ball in self.balls:
             # pad collision
-            if ball.ball.colliderect(self.pad.pad):
+            if ball.ball.colliderect(self.pad.pad) and ball.power[1]>=0:
                 offset = (ball.coords[0]-self.mouse_x)/self.pad.WIDTH
                 angle = atan(ball.power[1]/ball.power[0])
                 angle2 = (pi/2-abs(angle))*(1 if angle<0 else -1)/pi
@@ -119,12 +122,20 @@ class Game:
                 ball.coords += ball.power*3
                 ball.coords[1] -= 5
             # walls collision
-            if ball.radius+20>=ball.coords[0] or ball.coords[0]>=self.WIDTH-ball.radius-20:
+            if ball.radius+20>=ball.coords[0]:
                 ball.power[0] *= -1
-                ball.coords += ball.power*2
-            if ball.radius+50>=ball.coords[1] or ball.coords[1]>=self.HEIGHT-ball.radius:
+                ball.ball.left = 20
+            elif ball.coords[0]>=self.WIDTH-ball.radius-20:
+                ball.power[0] *= -1
+                ball.ball.right = self.WIDTH-20
+            if ball.radius+50>=ball.coords[1]:
                 ball.power[1] *= -1
-                ball.coords += ball.power*2
+                ball.ball.top = 50
+            elif ball.coords[1]>=self.HEIGHT-ball.radius:
+                self.game_mode = 0
+                self.change_game_mode(3, 1)
+                self.pad_x = self.WIDTH//2
+                self.load_level(self.current_level)
             # bricks collision
             b, a = int(ball.coords[0]-20)//64, int(ball.coords[1]-50)//32
             cells = [[x, y] for x in range(a-1, a+2) for y in range(b-2, b+3) if
@@ -181,6 +192,18 @@ class Game:
         for i, img in enumerate(self.images["bricks"]):
             if img!=None:
                 self.images["bricks"][i] = pygame.image.load(self.res_path(os.path.join("assets/bricks", img)))
+        self.images["balls"] = {"normal": pygame.image.load(self.res_path(os.path.join("assets/balls", "ball_normal.png")))}
+        self.images["pads"] = {
+            "0": {
+                "normal": pygame.image.load(self.res_path(os.path.join("assets/pads", "pad0_normal.png")))
+            },
+            "1": {
+                "normal": pygame.image.load(self.res_path(os.path.join("assets/pads", "pad1_normal.png")))
+            },
+            "2": {
+                "normal": pygame.image.load(self.res_path(os.path.join("assets/pads", "pad2_normal.png")))
+            }
+        }
                 
 
 

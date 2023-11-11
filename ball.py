@@ -4,18 +4,18 @@ from pygame import Rect
 
 class Ball:
 
-    def __init__(self, surf, color: tuple, radius: float, x: int, y: int, angle: int) -> None:
+    def __init__(self, surf, radius: float, x: int, y: int, angle: int, image) -> None:
         self.coords = Vector2(x, y)
         self.speed = 4
         self.power = Vector2(self.speed, 0).rotate(angle)
-        self.COLOR = color
         self.radius = radius
         self.rect_rad = radius+5
+        self.image = image
         self.surf = surf
         
     
     def draw(self, move: bool) -> None:
-        self.ball = Rect(self.coords - (self.rect_rad, self.rect_rad), (self.rect_rad*2, self.rect_rad*2))
-        circle(self.surf, self.COLOR, self.coords, self.radius)
+        self.ball = Rect(self.coords-(self.radius, self.radius), (self.radius*2, self.radius*2))
+        self.surf.blit(self.image, self.coords-(self.radius, self.radius))
         if move: self.coords += self.power
         
