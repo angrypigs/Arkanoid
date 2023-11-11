@@ -7,5 +7,5 @@ Requires some not built-in modules:
 - pygame
 - cryptography
 
-**Bricks textures made by Zepnyss:**
+**All textures are made by Zepnyss:**
 https://twitter.com/zepnyss
