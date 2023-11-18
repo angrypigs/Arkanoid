@@ -5,11 +5,12 @@ from time import sleep
 from threading import Thread
 from cryptography.fernet import Fernet
 from math import atan, pi, sqrt
-from random import choice
+from random import choice, sample
 
 from ball import Ball
 from pad import Pad
 from brick import Brick
+from powerup import PowerUp
 
 
 class Game:
@@ -26,12 +27,15 @@ class Game:
         self.fernet = Fernet(self.KEY)
         self.run = True
         self.pause = False
+        self.blind = False
         self.game_mode = 2
         self.current_level = 0
         self.pad_width = 120
+        self.powerups_places : list[list[int]] = []
         self.balls : list[Ball] = []
         self.bricks : list[list[Brick|None]] = [[None for x in range(self.COLS)] 
                                                 for y in range(self.ROWS)]
+        self.powerups : list[PowerUp] = []
         # init pygame window
         pygame.init()
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
@@ -76,11 +80,13 @@ class Game:
             base_path = sys.path[0]
         return os.path.join(base_path, rel_path)
 
+
     def change_game_mode(self, time: float, mode: int) -> None:
         def change() -> None:
             sleep(time)
             self.game_mode = mode
         Thread(target=change, daemon=True).start()
+
 
     def load_level(self, level: int) -> None:
         
@@ -89,28 +95,48 @@ class Game:
                 brick_list = [[int(y) for y in x.split(":")] 
                               for x in self.fernet.decrypt(line).decode().split(";")]
         
+        powerups = []
+        self.powerups.clear()
+        self.powerups_places.clear()
         for i in range(self.ROWS):
             for j in range(self.COLS):
                 self.bricks[i][j] = None
                 if brick_list[i][j]:
+                    powerups.append([i, j])
                     self.bricks[i][j] = Brick(self.screen, 20+j*64, 50+i*32, 
                                               brick_list[i][j], self.images["bricks"][brick_list[i][j]])
         
+        self.powerups_places.extend(sample(powerups, 10))
+        
         self.balls.clear()
         self.balls.append(Ball(self.screen, 10, self.WIDTH//2, 600, -60, self.images["balls"]["normal"]))
+
+
 
     def draw_game(self) -> None:
         """Draw game components"""
         self.screen.blit(self.images["game_gui"], (0, 0))
         for ball in self.balls:
             ball.draw(not self.pause and self.game_mode==1)
+        for powerup in self.powerups:
+            powerup.draw(not self.pause and self.game_mode==1)
         for row in range(self.ROWS):
             for col in range(self.COLS):
-                if self.bricks[row][col]!=None: 
+                if self.bricks[row][col]!=None and not self.blind:
                     self.bricks[row][col].draw()
 
     def balls_collisions(self) -> None:
-        """ Check for collision of every ball with walls, pad and all bricks """
+        """ 
+        Check for collision of every ball with walls, pad and all bricks, 
+        and pad with every powerup
+        """
+        # powerups collision
+        for i, power_up in enumerate(self.powerups):
+            if not power_up:
+                self.powerups.pop(i)
+            elif power_up.powerup.colliderect(self.pad.pad):
+                print(power_up.type)
+                self.powerups.pop(i)
         for ball in self.balls:
             # pad collision
             if ball.ball.colliderect(self.pad.pad) and ball.power[1]>=0:
@@ -124,13 +150,13 @@ class Game:
             # walls collision
             if ball.radius+20>=ball.coords[0]:
                 ball.power[0] *= -1
-                ball.ball.left = 20
+                ball.ball.left = 25
             elif ball.coords[0]>=self.WIDTH-ball.radius-20:
                 ball.power[0] *= -1
-                ball.ball.right = self.WIDTH-20
+                ball.ball.right = self.WIDTH-25
             if ball.radius+50>=ball.coords[1]:
                 ball.power[1] *= -1
-                ball.ball.top = 50
+                ball.ball.top = 55
             elif ball.coords[1]>=self.HEIGHT-ball.radius:
                 self.game_mode = 0
                 self.change_game_mode(3, 1)
@@ -177,13 +203,17 @@ class Game:
                         for i in [x for x in [[row, col-1], [row, col+1], [row-1, col], [row+1, col]]
                                     if 0<=x[0]<self.ROWS and 0<=x[1]<self.COLS and self.bricks[x[0]][x[1]]!=None]:
                             self.bricks[i[0]][i[1]] = None
+                    if [row, col] in self.powerups_places:
+                        powerup = choice(self.POWERUP_TYPES)
+                        self.powerups.append(PowerUp(self.screen, brick.X, brick.Y, self.HEIGHT, 
+                                                     powerup, self.images["powerups"][powerup]))
         if not any(any(isinstance(b, Brick) and b.index!=6 for b in r) for r in self.bricks) and self.game_mode==1:
             self.game_mode = 0
             self.change_game_mode(3, 2)
     
     def init_images(self) -> None:
         """Import game images to dict"""
-        self.images = {"bricks": []}
+        self.images = {"bricks": [], "powerups": {}}
         self.images["game_gui"] = pygame.image.load(self.res_path(os.path.join("assets/gui", "game_gui.png")))
         for img in os.listdir(self.res_path(f"assets{os.path.sep}bricks")):
             self.images["bricks"].append(img)
@@ -192,6 +222,13 @@ class Game:
         for i, img in enumerate(self.images["bricks"]):
             if img!=None:
                 self.images["bricks"][i] = pygame.image.load(self.res_path(os.path.join("assets/bricks", img)))
+
+        temp = []
+        for img in os.listdir(self.res_path(f"assets{os.path.sep}powerups")):
+            temp.append(img[:-4])
+            self.images["powerups"][img[:-4]] = pygame.image.load(self.res_path(os.path.join("assets/powerups", img)))
+        self.POWERUP_TYPES = temp.copy()
+
         self.images["balls"] = {"normal": pygame.image.load(self.res_path(os.path.join("assets/balls", "ball_normal.png")))}
         self.images["pads"] = {
             "0": {
