@@ -11,6 +11,8 @@ from ball import Ball
 from pad import Pad
 from brick import Brick
 from powerup import PowerUp
+from custom_timer import customTimer
+from utils import *
 
 
 class Game:
@@ -22,20 +24,23 @@ class Game:
         self.ROWS = 10
         self.COLS = 15
         self.KEY = b'1fM3z8hZKFlNgF5UAKpIjEkeU3SDxPenJP725BN-V9Q='
-        self.LEVELS_AMOUNT = len([img for img in os.listdir(self.res_path("levels")) 
+        self.LEVELS_AMOUNT = len([img for img in os.listdir(res_path("levels")) 
                                   if img.startswith("level")])
         self.fernet = Fernet(self.KEY)
         self.run = True
         self.pause = False
-        self.blind = False
         self.game_mode = 2
         self.current_level = 0
-        self.pad_width = 120
-        self.powerups_places : list[list[int]] = []
         self.balls : list[Ball] = []
         self.bricks : list[list[Brick|None]] = [[None for x in range(self.COLS)] 
                                                 for y in range(self.ROWS)]
+        
+        self.powerups_places : list[list[int]] = []
         self.powerups : list[PowerUp] = []
+        # 0 - pad length, 1 - ball speed, 2 - border, 3 - shooting pad, 4 - glue, 5 - blindness, 6 - multiplier
+        self.powerup_threads : list[customTimer] = [customTimer(20, self.reset_powerup, [x, ]) for x in range(7)]
+        self.POWERUP_DEFAULTS = [120, 4, False, False, False, False, 1]
+        self.powerup_timers : list[int|bool] = self.POWERUP_DEFAULTS.copy()
         # init pygame window
         pygame.init()
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
@@ -43,7 +48,7 @@ class Game:
         self.clock = pygame.time.Clock()
         self.init_images()
         # add ball and pad
-        self.pad = Pad(self.screen, self.pad_width, 20, (150, 150, 110), self.HEIGHT/9*8, self.images["pads"]["0"]["normal"])
+        self.pad = Pad(self.screen, 120, 20, (150, 150, 110), self.HEIGHT/9*8, self.images["pads"]["0"]["normal"])
         self.pad_x = self.WIDTH//2
         # main loop
         while self.run:
@@ -64,22 +69,11 @@ class Game:
                 self.load_level(self.current_level)
             self.mouse_x, self.mouse_y = pygame.mouse.get_pos()
             if not self.pause and self.game_mode==1: self.pad_x = self.mouse_x
-            self.pad.draw(pygame.math.clamp(self.pad_x, 20+self.pad_width//2, self.WIDTH-20-self.pad_width//2))
+            self.pad.draw(pygame.math.clamp(self.pad_x, 20+self.powerup_timers[0]//2, self.WIDTH-20-self.powerup_timers[0]//2))
             self.draw_game()
             self.balls_collisions()
             pygame.display.flip()
             self.clock.tick(120)
-
-    def res_path(self, rel_path: str) -> str:
-        """
-        Return path to file modified by auto_py_to_exe path if packed to exe already
-        """
-        try:
-            base_path = sys._MEIPASS
-        except Exception:
-            base_path = sys.path[0]
-        return os.path.join(base_path, rel_path)
-
 
     def change_game_mode(self, time: float, mode: int) -> None:
         def change() -> None:
@@ -87,14 +81,27 @@ class Game:
             self.game_mode = mode
         Thread(target=change, daemon=True).start()
 
+    def reset_powerup(self, index: int) -> None:
+        self.powerup_timers[index] = self.POWERUP_DEFAULTS[index]
+        match index:
+            case 0:
+                self.pad.image = self.images["pads"]["0"]["shooting" if self.powerup_timers[3] else "normal"]
+            case 5:
+                match self.powerup_timers[0]:
+                    case 90:
+                        length = "2"
+                    case 160:
+                        length = "1"
+                    case _:
+                        length = "0"
+                self.pad.image = self.images["pads"][length]["normal"]
 
     def load_level(self, level: int) -> None:
         
-        with open(self.res_path(os.path.join("levels", f"level{level}.dat")), "rb") as f:
+        with open(res_path(os.path.join("levels", f"level{level}.dat")), "rb") as f:
             for line in f.readlines():
                 brick_list = [[int(y) for y in x.split(":")] 
                               for x in self.fernet.decrypt(line).decode().split(";")]
-        
         powerups = []
         self.powerups.clear()
         self.powerups_places.clear()
@@ -105,25 +112,23 @@ class Game:
                     powerups.append([i, j])
                     self.bricks[i][j] = Brick(self.screen, 20+j*64, 50+i*32, 
                                               brick_list[i][j], self.images["bricks"][brick_list[i][j]])
-        
         self.powerups_places.extend(sample(powerups, 10))
-        
         self.balls.clear()
         self.balls.append(Ball(self.screen, 10, self.WIDTH//2, 600, -60, self.images["balls"]["normal"]))
 
-
-
     def draw_game(self) -> None:
-        """Draw game components"""
+        """
+        Draw game components
+        """
         self.screen.blit(self.images["game_gui"], (0, 0))
         for ball in self.balls:
             ball.draw(not self.pause and self.game_mode==1)
-        for powerup in self.powerups:
-            powerup.draw(not self.pause and self.game_mode==1)
         for row in range(self.ROWS):
             for col in range(self.COLS):
-                if self.bricks[row][col]!=None and not self.blind:
+                if self.bricks[row][col]!=None:
                     self.bricks[row][col].draw()
+        for powerup in self.powerups:
+            powerup.draw(not self.pause and self.game_mode==1)
 
     def balls_collisions(self) -> None:
         """ 
@@ -135,7 +140,13 @@ class Game:
             if not power_up:
                 self.powerups.pop(i)
             elif power_up.powerup.colliderect(self.pad.pad):
-                print(power_up.type)
+                index = powerup_index(power_up.type)
+                new_val = powerup_value(power_up.type, self.powerup_timers[6])
+                self.powerup_timers[index] = new_val
+                match index:
+                    case 0:
+                        self.pad.image = self.images["pads"]["1" if new_val==160 else "2"]["shooting" if self.powerup_timers[3] else "normal"]
+                self.powerup_threads[index].reset()
                 self.powerups.pop(i)
         for ball in self.balls:
             # pad collision
@@ -214,31 +225,34 @@ class Game:
     def init_images(self) -> None:
         """Import game images to dict"""
         self.images = {"bricks": [], "powerups": {}}
-        self.images["game_gui"] = pygame.image.load(self.res_path(os.path.join("assets/gui", "game_gui.png")))
-        for img in os.listdir(self.res_path(f"assets{os.path.sep}bricks")):
+        self.images["game_gui"] = pygame.image.load(res_path(os.path.join("assets/gui", "game_gui.png")))
+        for img in os.listdir(res_path(f"assets{os.path.sep}bricks")):
             self.images["bricks"].append(img)
         self.images["bricks"] = sorted(self.images["bricks"], key=lambda x: int(x.lstrip("brick").rstrip(".png")))
         self.images["bricks"].insert(0, None)
         for i, img in enumerate(self.images["bricks"]):
             if img!=None:
-                self.images["bricks"][i] = pygame.image.load(self.res_path(os.path.join("assets/bricks", img)))
+                self.images["bricks"][i] = pygame.image.load(res_path(os.path.join("assets/bricks", img)))
 
         temp = []
-        for img in os.listdir(self.res_path(f"assets{os.path.sep}powerups")):
+        for img in os.listdir(res_path(f"assets{os.path.sep}powerups")):
             temp.append(img[:-4])
-            self.images["powerups"][img[:-4]] = pygame.image.load(self.res_path(os.path.join("assets/powerups", img)))
+            self.images["powerups"][img[:-4]] = pygame.image.load(res_path(os.path.join("assets/powerups", img)))
         self.POWERUP_TYPES = temp.copy()
 
-        self.images["balls"] = {"normal": pygame.image.load(self.res_path(os.path.join("assets/balls", "ball_normal.png")))}
+        self.images["balls"] = {"normal": pygame.image.load(res_path(os.path.join("assets/balls", "ball_normal.png")))}
         self.images["pads"] = {
             "0": {
-                "normal": pygame.image.load(self.res_path(os.path.join("assets/pads", "pad0_normal.png")))
+                "normal": pygame.image.load(res_path(os.path.join("assets/pads", "pad0_normal.png"))),
+                "shooting": pygame.image.load(res_path(os.path.join("assets/pads", "pad0_shooting.png")))
             },
             "1": {
-                "normal": pygame.image.load(self.res_path(os.path.join("assets/pads", "pad1_normal.png")))
+                "normal": pygame.image.load(res_path(os.path.join("assets/pads", "pad1_normal.png"))),
+                "shooting": pygame.image.load(res_path(os.path.join("assets/pads", "pad1_shooting.png")))
             },
             "2": {
-                "normal": pygame.image.load(self.res_path(os.path.join("assets/pads", "pad2_normal.png")))
+                "normal": pygame.image.load(res_path(os.path.join("assets/pads", "pad2_normal.png"))),
+                "shooting": pygame.image.load(res_path(os.path.join("assets/pads", "pad2_shooting.png")))
             }
         }
                 

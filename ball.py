@@ -6,7 +6,7 @@ class Ball:
 
     def __init__(self, surf, radius: float, x: int, y: int, angle: int, image) -> None:
         self.coords = Vector2(x, y)
-        self.speed = 4
+        self.speed = 5.5
         self.power = Vector2(self.speed, 0).rotate(angle)
         self.radius = radius
         self.rect_rad = radius+5
