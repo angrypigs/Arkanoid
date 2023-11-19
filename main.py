@@ -5,7 +5,7 @@ from time import sleep
 from threading import Thread
 from cryptography.fernet import Fernet
 from math import atan, pi, sqrt
-from random import choice, sample
+from random import choice, sample, randint
 
 from ball import Ball
 from pad import Pad
@@ -86,6 +86,10 @@ class Game:
         match index:
             case 0:
                 self.pad.image = self.images["pads"]["0"]["shooting" if self.powerup_timers[3] else "normal"]
+            case 1:
+                for ball in self.balls:
+                    ball.power *= (self.powerup_timers[1]/ball.speed)
+                    ball.speed = self.powerup_timers[1]
             case 5:
                 match self.powerup_timers[0]:
                     case 90:
@@ -95,6 +99,10 @@ class Game:
                     case _:
                         length = "0"
                 self.pad.image = self.images["pads"][length]["normal"]
+            case 6:
+                self.balls.sort(key=lambda y: y.coords[1])
+                while len(self.balls)!=1:
+                    self.balls.pop()
 
     def load_level(self, level: int) -> None:
         
@@ -125,7 +133,7 @@ class Game:
             ball.draw(not self.pause and self.game_mode==1)
         for row in range(self.ROWS):
             for col in range(self.COLS):
-                if self.bricks[row][col]!=None:
+                if self.bricks[row][col]!=None and not self.powerup_timers[5]:
                     self.bricks[row][col].draw()
         for powerup in self.powerups:
             powerup.draw(not self.pause and self.game_mode==1)
@@ -146,6 +154,16 @@ class Game:
                 match index:
                     case 0:
                         self.pad.image = self.images["pads"]["1" if new_val==160 else "2"]["shooting" if self.powerup_timers[3] else "normal"]
+                    case 1:
+                        for ball in self.balls:
+                            ball.power *= (new_val/ball.speed)
+                            ball.speed = new_val
+                    case 6:
+                        self.balls.sort(key=lambda y: y.coords[1])
+                        for j in range(2):
+                            coords = self.balls[0].coords
+                            self.balls.append(Ball(self.screen, 10, coords[0], coords[1], randint(-80, -40), self.images["balls"]["normal"]))
+
                 self.powerup_threads[index].reset()
                 self.powerups.pop(i)
         for ball in self.balls:
@@ -169,10 +187,15 @@ class Game:
                 ball.power[1] *= -1
                 ball.ball.top = 55
             elif ball.coords[1]>=self.HEIGHT-ball.radius:
-                self.game_mode = 0
-                self.change_game_mode(3, 1)
-                self.pad_x = self.WIDTH//2
-                self.load_level(self.current_level)
+                if len(self.balls)==1:
+                    self.game_mode = 0
+                    self.change_game_mode(3, 1)
+                    self.pad_x = self.WIDTH//2
+                    self.powerups.clear()
+                    self.balls.clear()
+                    self.balls.append(Ball(self.screen, 10, self.WIDTH//2, 600, -60, self.images["balls"]["normal"]))
+                else:
+                    self.balls.remove(ball)
             # bricks collision
             b, a = int(ball.coords[0]-20)//64, int(ball.coords[1]-50)//32
             cells = [[x, y] for x in range(a-1, a+2) for y in range(b-2, b+3) if
