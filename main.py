@@ -40,7 +40,7 @@ class Game:
         # 0 - pad length, 1 - ball speed, 2 - border, 3 - shooting pad, 4 - glue, 5 - blindness, 6 - multiplier
         self.powerup_threads : list[customTimer] = [customTimer(20, self.reset_powerup, [x, ]) for x in range(7)]
         self.POWERUP_DEFAULTS = [120, 4, False, False, False, False, 1]
-        self.powerup_timers : list[int|bool] = self.POWERUP_DEFAULTS.copy()
+        self.powerup_values : list[int|bool] = self.POWERUP_DEFAULTS.copy()
         # init pygame window
         pygame.init()
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
@@ -69,7 +69,7 @@ class Game:
                 self.load_level(self.current_level)
             self.mouse_x, self.mouse_y = pygame.mouse.get_pos()
             if not self.pause and self.game_mode==1: self.pad_x = self.mouse_x
-            self.pad.draw(pygame.math.clamp(self.pad_x, 20+self.powerup_timers[0]//2, self.WIDTH-20-self.powerup_timers[0]//2))
+            self.pad.draw(pygame.math.clamp(self.pad_x, 20+self.powerup_values[0]//2, self.WIDTH-20-self.powerup_values[0]//2))
             self.draw_game()
             self.balls_collisions()
             pygame.display.flip()
@@ -82,16 +82,17 @@ class Game:
         Thread(target=change, daemon=True).start()
 
     def reset_powerup(self, index: int) -> None:
-        self.powerup_timers[index] = self.POWERUP_DEFAULTS[index]
+        self.powerup_values[index] = self.POWERUP_DEFAULTS[index]
         match index:
             case 0:
-                self.pad.image = self.images["pads"]["0"]["shooting" if self.powerup_timers[3] else "normal"]
+                self.pad.image = self.images["pads"]["0"]["shooting" if self.powerup_values[3] else "normal"]
+                self.pad.width = 120
             case 1:
                 for ball in self.balls:
-                    ball.power *= (self.powerup_timers[1]/ball.speed)
-                    ball.speed = self.powerup_timers[1]
+                    ball.power *= (self.powerup_values[1]/ball.speed)
+                    ball.speed = self.powerup_values[1]
             case 5:
-                match self.powerup_timers[0]:
+                match self.powerup_values[0]:
                     case 90:
                         length = "2"
                     case 160:
@@ -133,7 +134,7 @@ class Game:
             ball.draw(not self.pause and self.game_mode==1)
         for row in range(self.ROWS):
             for col in range(self.COLS):
-                if self.bricks[row][col]!=None and not self.powerup_timers[5]:
+                if self.bricks[row][col]!=None and not self.powerup_values[5]:
                     self.bricks[row][col].draw()
         for powerup in self.powerups:
             powerup.draw(not self.pause and self.game_mode==1)
@@ -149,11 +150,12 @@ class Game:
                 self.powerups.pop(i)
             elif power_up.powerup.colliderect(self.pad.pad):
                 index = powerup_index(power_up.type)
-                new_val = powerup_value(power_up.type, self.powerup_timers[6])
-                self.powerup_timers[index] = new_val
+                new_val = powerup_value(power_up.type, self.powerup_values[6])
+                self.powerup_values[index] = new_val
                 match index:
                     case 0:
-                        self.pad.image = self.images["pads"]["1" if new_val==160 else "2"]["shooting" if self.powerup_timers[3] else "normal"]
+                        self.pad.image = self.images["pads"]["1" if new_val==160 else "2"]["shooting" if self.powerup_values[3] else "normal"]
+                        self.pad.width = self.powerup_values[0]
                     case 1:
                         for ball in self.balls:
                             ball.power *= (new_val/ball.speed)
@@ -169,11 +171,12 @@ class Game:
         for ball in self.balls:
             # pad collision
             if ball.ball.colliderect(self.pad.pad) and ball.power[1]>=0:
-                offset = (ball.coords[0]-self.mouse_x)/self.pad.WIDTH
+                offset = (ball.coords[0]-self.mouse_x)/self.pad.width
                 angle = atan(ball.power[1]/ball.power[0])
                 angle2 = (pi/2-abs(angle))*(1 if angle<0 else -1)/pi
                 ball.power[1] *= -1
                 ball.power.rotate_ip(180*min(max(offset+angle2, -0.5), 0.5))
+                if ball.power[1]>0: ball.power[1] *= -1
                 ball.coords += ball.power*3
                 ball.coords[1] -= 5
             # walls collision
