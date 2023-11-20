@@ -13,10 +13,12 @@ class Ball:
         self.image = image
         self.surf = surf
         self.ball = Rect(self.coords-(self.radius, self.radius), (self.radius*2, self.radius*2))
+        self.glued = False
+        self.offset = 0
         
     
     def draw(self, move: bool) -> None:
         self.ball = Rect(self.coords-(self.radius, self.radius), (self.radius*2, self.radius*2))
         self.surf.blit(self.image, self.coords-(self.radius, self.radius))
-        if move: self.coords += self.power
+        if move and not self.glued: self.coords += self.power
         

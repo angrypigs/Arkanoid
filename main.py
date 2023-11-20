@@ -37,10 +37,10 @@ class Game:
         
         self.powerups_places : list[list[int]] = []
         self.powerups : list[PowerUp] = []
-        # 0 - pad length, 1 - ball speed, 2 - border, 3 - shooting pad, 4 - glue, 5 - blindness, 6 - multiplier
         self.powerup_threads : list[customTimer] = [customTimer(20, self.reset_powerup, [x, ]) for x in range(7)]
         self.POWERUP_DEFAULTS = [120, 4, False, False, False, False, 1]
         self.powerup_values : list[int|bool] = self.POWERUP_DEFAULTS.copy()
+        """0 - pad length, 1 - ball speed, 2 - border, 3 - shooting pad, 4 - glue, 5 - blindness, 6 - multiplier"""
         # init pygame window
         pygame.init()
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
@@ -58,6 +58,9 @@ class Game:
                     self.run = False
                 elif event.type==pygame.KEYDOWN and event.key==pygame.K_ESCAPE:
                     self.pause = not self.pause
+                elif event.type==pygame.KEYDOWN and event.key==pygame.K_SPACE:
+                    for ball in self.balls:
+                        ball.glued = False
             if self.game_mode==2:
                 self.game_mode = 0
                 if self.current_level==self.LEVELS_AMOUNT:
@@ -67,9 +70,6 @@ class Game:
                 self.change_game_mode(3, 1)
                 self.pad_x = self.WIDTH//2
                 self.load_level(self.current_level)
-            self.mouse_x, self.mouse_y = pygame.mouse.get_pos()
-            if not self.pause and self.game_mode==1: self.pad_x = self.mouse_x
-            self.pad.draw(pygame.math.clamp(self.pad_x, 20+self.powerup_values[0]//2, self.WIDTH-20-self.powerup_values[0]//2))
             self.draw_game()
             self.balls_collisions()
             pygame.display.flip()
@@ -91,6 +91,9 @@ class Game:
                 for ball in self.balls:
                     ball.power *= (self.powerup_values[1]/ball.speed)
                     ball.speed = self.powerup_values[1]
+            case 4:
+                for ball in self.balls:
+                    ball.glued = False
             case 5:
                 match self.powerup_values[0]:
                     case 90:
@@ -101,12 +104,14 @@ class Game:
                         length = "0"
                 self.pad.image = self.images["pads"][length]["normal"]
             case 6:
-                self.balls.sort(key=lambda y: y.coords[1])
-                while len(self.balls)!=1:
+                self.balls.sort(key=lambda y: y.coords.y)
+                while len(self.balls)>1:
                     self.balls.pop()
 
     def load_level(self, level: int) -> None:
-        
+        """
+        Loads specific level from .dat files
+        """
         with open(res_path(os.path.join("levels", f"level{level}.dat")), "rb") as f:
             for line in f.readlines():
                 brick_list = [[int(y) for y in x.split(":")] 
@@ -122,6 +127,8 @@ class Game:
                     self.bricks[i][j] = Brick(self.screen, 20+j*64, 50+i*32, 
                                               brick_list[i][j], self.images["bricks"][brick_list[i][j]])
         self.powerups_places.extend(sample(powerups, 10))
+        for i in range(7):
+            self.reset_powerup(i)
         self.balls.clear()
         self.balls.append(Ball(self.screen, 10, self.WIDTH//2, 600, -60, self.images["balls"]["normal"]))
 
@@ -129,9 +136,22 @@ class Game:
         """
         Draw game components
         """
+        self.mouse_x, self.mouse_y = pygame.mouse.get_pos()
+        if not self.pause and self.game_mode==1: self.pad_x = self.mouse_x
+        self.pad.draw(pygame.math.clamp(self.pad_x, 20+self.powerup_values[0]//2, self.WIDTH-20-self.powerup_values[0]//2))
+        if self.powerup_values[4]: 
+            match self.powerup_values[0]:
+                case 90:
+                    length = "2"
+                case 160:
+                    length = "1"
+                case _:
+                    length = "0"
+            self.screen.blit(self.images["pads"][length]["glue"], (self.pad.x-self.pad.width//2, self.pad.FLAT))
         self.screen.blit(self.images["game_gui"], (0, 0))
         for ball in self.balls:
             ball.draw(not self.pause and self.game_mode==1)
+            if ball.glued: ball.coords.x = self.pad.x+ball.offset*self.powerup_values[0]
         for row in range(self.ROWS):
             for col in range(self.COLS):
                 if self.bricks[row][col]!=None and not self.powerup_values[5]:
@@ -161,35 +181,38 @@ class Game:
                             ball.power *= (new_val/ball.speed)
                             ball.speed = new_val
                     case 6:
-                        self.balls.sort(key=lambda y: y.coords[1])
+                        self.balls.sort(key=lambda y: y.coords.y)
                         for j in range(2):
                             coords = self.balls[0].coords
-                            self.balls.append(Ball(self.screen, 10, coords[0], coords[1], randint(-80, -40), self.images["balls"]["normal"]))
+                            self.balls.append(Ball(self.screen, 10, coords.x, coords.y, randint(-80, -40), self.images["balls"]["normal"]))
 
                 self.powerup_threads[index].reset()
                 self.powerups.pop(i)
         for ball in self.balls:
             # pad collision
-            if ball.ball.colliderect(self.pad.pad) and ball.power[1]>=0:
-                offset = (ball.coords[0]-self.mouse_x)/self.pad.width
-                angle = atan(ball.power[1]/ball.power[0])
+            if ball.ball.colliderect(self.pad.pad) and ball.power.y>=0:
+                offset = (ball.coords.x-self.mouse_x)/self.pad.width
+                angle = atan(ball.power.y/ball.power.x)
                 angle2 = (pi/2-abs(angle))*(1 if angle<0 else -1)/pi
-                ball.power[1] *= -1
+                ball.power.y *= -1
                 ball.power.rotate_ip(180*min(max(offset+angle2, -0.5), 0.5))
-                if ball.power[1]>0: ball.power[1] *= -1
-                ball.coords += ball.power*3
-                ball.coords[1] -= 5
+                if ball.power.y>0: ball.power.y *= -1
+                ball.coords += ball.power
+                ball.coords.y -= 5
+                if self.powerup_values[4]: 
+                    ball.glued = True
+                    ball.offset = offset
             # walls collision
-            if ball.radius+20>=ball.coords[0]:
-                ball.power[0] *= -1
-                ball.ball.left = 25
-            elif ball.coords[0]>=self.WIDTH-ball.radius-20:
-                ball.power[0] *= -1
-                ball.ball.right = self.WIDTH-25
-            if ball.radius+50>=ball.coords[1]:
-                ball.power[1] *= -1
-                ball.ball.top = 55
-            elif ball.coords[1]>=self.HEIGHT-ball.radius:
+            if ball.radius+20>=ball.coords.x:
+                ball.power.x *= -1
+                ball.coords.x = ball.radius+25
+            elif ball.coords.x>=self.WIDTH-ball.radius-20:
+                ball.power.x *= -1
+                ball.coords.x = self.WIDTH-ball.radius-25
+            if ball.radius+50>=ball.coords.y:
+                ball.power.y *= -1
+                ball.coords.y = ball.radius+55
+            elif ball.coords.y>=self.HEIGHT-ball.radius:
                 if len(self.balls)==1:
                     self.game_mode = 0
                     self.change_game_mode(3, 1)
@@ -200,32 +223,32 @@ class Game:
                 else:
                     self.balls.remove(ball)
             # bricks collision
-            b, a = int(ball.coords[0]-20)//64, int(ball.coords[1]-50)//32
+            b, a = int(ball.coords.x-20)//64, int(ball.coords.y-50)//32
             cells = [[x, y] for x in range(a-1, a+2) for y in range(b-2, b+3) if
                      0<=x<self.ROWS and 0<=y<self.COLS and self.bricks[x][y] is not None]
             for row, col in cells:
                 brick = self.bricks[row][col]
-                circle_closest_x = max(brick.X, min(ball.coords[0], brick.X + 64))
-                circle_closest_y = max(brick.Y, min(ball.coords[1], brick.Y + 32))
-                dist = sqrt((ball.coords[0] - circle_closest_x) ** 2 + (ball.coords[1] - circle_closest_y) ** 2)
+                circle_closest_x = max(brick.X, min(ball.coords.x, brick.X + 64))
+                circle_closest_y = max(brick.Y, min(ball.coords.y, brick.Y + 32))
+                dist = sqrt((ball.coords.x - circle_closest_x) ** 2 + (ball.coords.y - circle_closest_y) ** 2)
                 if dist < ball.radius:
                     # check for side of collision
-                    overlap_x = circle_closest_x - ball.coords[0]
-                    overlap_y = circle_closest_y - ball.coords[1]
+                    overlap_x = circle_closest_x - ball.coords.x
+                    overlap_y = circle_closest_y - ball.coords.y
                     if abs(overlap_x) < abs(overlap_y):
-                        if overlap_y > 0 and ball.power[1]>0:
+                        if overlap_y > 0 and ball.power.y>0:
                             ball.ball.bottom = brick.brick.top
-                            ball.power[1] *= -1
-                        elif overlap_y < 0 and ball.power[1]<0:
+                            ball.power.y *= -1
+                        elif overlap_y < 0 and ball.power.y<0:
                             ball.ball.top = brick.brick.bottom
-                            ball.power[1] *= -1
+                            ball.power.y *= -1
                     else:
-                        if overlap_x > 0 and ball.power[0]>0:
+                        if overlap_x > 0 and ball.power.x>0:
                             ball.ball.right = brick.brick.left
-                            ball.power[0] *= -1
-                        elif overlap_x < 0 and ball.power[0]<0:
+                            ball.power.x *= -1
+                        elif overlap_x < 0 and ball.power.x<0:
                             ball.ball.left = brick.brick.right
-                            ball.power[0] *= -1
+                            ball.power.x *= -1
                     # check for type of brick
                     if brick.index in [1, 2, 3, 4, 5, 12]:
                         self.bricks[row][col] = None
@@ -270,15 +293,18 @@ class Game:
         self.images["pads"] = {
             "0": {
                 "normal": pygame.image.load(res_path(os.path.join("assets/pads", "pad0_normal.png"))),
-                "shooting": pygame.image.load(res_path(os.path.join("assets/pads", "pad0_shooting.png")))
+                "shooting": pygame.image.load(res_path(os.path.join("assets/pads", "pad0_shooting.png"))),
+                "glue": pygame.image.load(res_path(os.path.join("assets/pads", "pad0_glue.png")))
             },
             "1": {
                 "normal": pygame.image.load(res_path(os.path.join("assets/pads", "pad1_normal.png"))),
-                "shooting": pygame.image.load(res_path(os.path.join("assets/pads", "pad1_shooting.png")))
+                "shooting": pygame.image.load(res_path(os.path.join("assets/pads", "pad1_shooting.png"))),
+                "glue": pygame.image.load(res_path(os.path.join("assets/pads", "pad1_glue.png")))
             },
             "2": {
                 "normal": pygame.image.load(res_path(os.path.join("assets/pads", "pad2_normal.png"))),
-                "shooting": pygame.image.load(res_path(os.path.join("assets/pads", "pad2_shooting.png")))
+                "shooting": pygame.image.load(res_path(os.path.join("assets/pads", "pad2_shooting.png"))),
+                "glue": pygame.image.load(res_path(os.path.join("assets/pads", "pad2_glue.png")))
             }
         }
                 
