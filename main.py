@@ -136,9 +136,13 @@ class Game:
         """
         Draw game components
         """
+        # mouse position, shield and pad draw
+        if self.powerup_values[2]: 
+            self.screen.blit(self.images["effects"]["shield"], (20, self.HEIGHT//9*8+15))
         self.mouse_x, self.mouse_y = pygame.mouse.get_pos()
         if not self.pause and self.game_mode==1: self.pad_x = self.mouse_x
         self.pad.draw(pygame.math.clamp(self.pad_x, 20+self.powerup_values[0]//2, self.WIDTH-20-self.powerup_values[0]//2))
+        # glue draw
         if self.powerup_values[4]: 
             match self.powerup_values[0]:
                 case 90:
@@ -148,6 +152,7 @@ class Game:
                 case _:
                     length = "0"
             self.screen.blit(self.images["pads"][length]["glue"], (self.pad.x-self.pad.width//2, self.pad.FLAT))
+        # gui draw
         self.screen.blit(self.images["game_gui"], (0, 0))
         for ball in self.balls:
             ball.draw(not self.pause and self.game_mode==1)
@@ -212,6 +217,9 @@ class Game:
             if ball.radius+50>=ball.coords.y:
                 ball.power.y *= -1
                 ball.coords.y = ball.radius+55
+            elif ball.coords.y>=ball.radius+self.HEIGHT//9*8 and self.powerup_values[2]:
+                ball.power.y *= -1
+                ball.coords.y = self.HEIGHT//9*8-ball.radius-5
             elif ball.coords.y>=self.HEIGHT-ball.radius:
                 if len(self.balls)==1:
                     self.game_mode = 0
@@ -306,6 +314,9 @@ class Game:
                 "shooting": pygame.image.load(res_path(os.path.join("assets/pads", "pad2_shooting.png"))),
                 "glue": pygame.image.load(res_path(os.path.join("assets/pads", "pad2_glue.png")))
             }
+        }
+        self.images["effects"] = {
+            "shield": pygame.image.load(res_path(os.path.join("assets/effects", "barrier.png")))
         }
                 
 
