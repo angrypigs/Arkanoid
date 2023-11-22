@@ -12,6 +12,6 @@ class Pad:
         self.x = 100
     
     def draw(self, x: float) -> None:
-        self.pad = Rect(x-self.width//2, self.FLAT, self.width, self.HEIGHT)
+        self.mask = Rect(x-self.width//2, self.FLAT, self.width, self.HEIGHT)
         self.surf.blit(self.image, (x-self.width//2, self.FLAT))
         self.x = x

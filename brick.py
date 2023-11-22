@@ -10,5 +10,5 @@ class Brick:
         self.index = index
 
     def draw(self) -> None:
-        self.brick = Rect(self.X, self.Y, 64, 32)
+        self.mask = Rect(self.X, self.Y, 64, 32)
         self.surf.blit(self.image, (self.X, self.Y))

@@ -16,6 +16,6 @@ class PowerUp:
         return self.y<self.HEIGHT
 
     def draw(self, move: bool) -> None:
-        self.powerup = Rect(self.x, self.y, 35, 35)
+        self.mask = Rect(self.x, self.y, 35, 35)
         self.screen.blit(self.image, (self.x, self.y))
         if move: self.y += 2

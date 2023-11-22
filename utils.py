@@ -1,6 +1,9 @@
 import sys
 from os import path
 
+POWERUP_DEFAULTS = (120, 4.5, False, False, False, False, 1)
+POWERUP_TIMES = (20, 20, 20, 6, 30, 15, 15)
+
 def res_path(rel_path: str) -> str:
     """
     Return path to file modified by auto_py_to_exe path if packed to exe already
@@ -35,12 +38,21 @@ def powerup_value(powerup: str, val: int | None = None) -> float|bool:
         case "blind" | "sticky" | "shield" | "gun":
             return True
         case "slow":
-            return 3
+            return 3.5
         case "fast":
-            return 5
+            return 5.5
         case "longer":
             return 160
         case "short":
             return 90
         case "multiply":
             return val+2
+
+def pad_index(length: float) -> str:
+    match length:
+        case 90:
+            return "2"
+        case 160:
+            return "1"
+        case _:
+            return "0"
