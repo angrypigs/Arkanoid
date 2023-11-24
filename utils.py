@@ -1,8 +1,8 @@
 import sys
 from os import path
 
-POWERUP_DEFAULTS = (120, 4.5, False, False, False, False, 1)
-POWERUP_TIMES = (20, 20, 20, 6, 30, 15, 15)
+POWERUP_DEFAULTS = (120, 4.5, False, False, False, False, 1, False, False)
+POWERUP_TIMES = (20, 20, 20, 6, 30, 15, 15, 0, 6)
 
 def res_path(rel_path: str) -> str:
     """
@@ -30,12 +30,16 @@ def powerup_index(powerup: str) -> int:
             return 5
         case "multiply":
             return 6
+        case "lifeup":
+            return 7
+        case "burnball":
+            return 8
         case _:
             return -1
         
-def powerup_value(powerup: str, val: int | None = None) -> float|bool:
+def powerup_value(powerup: str) -> float|bool:
     match powerup:
-        case "blind" | "sticky" | "shield" | "gun":
+        case "blind" | "sticky" | "shield" | "gun" | "lifeup" | "burnball":
             return True
         case "slow":
             return 3.5
@@ -46,7 +50,7 @@ def powerup_value(powerup: str, val: int | None = None) -> float|bool:
         case "short":
             return 90
         case "multiply":
-            return val+2
+            return 2
 
 def pad_index(length: float) -> str:
     match length:

@@ -41,7 +41,8 @@ class Game:
         self.bullets : list[Bullet] = []
         self.powerups_places : list[list[int]] = []
         self.powerups : list[PowerUp] = []
-        self.powerup_threads : list[customTimer] = [customTimer(POWERUP_TIMES[x], self.reset_powerup, [x, ]) for x in range(7)]
+        self.powerup_threads : list[customTimer] = [customTimer(POWERUP_TIMES[x], self.reset_powerup, [x, ]) 
+                                                    for x in range(len(POWERUP_DEFAULTS))]
         self.powerup_values : list[int|bool] = list(POWERUP_DEFAULTS)
         """0 - pad length, 1 - ball speed, 2 - border, 3 - shooting pad, 4 - glue, 5 - blindness, 6 - multiplier"""
         # init pygame window
@@ -202,8 +203,12 @@ class Game:
             if not power_up:
                 self.powerups.pop(i)
             elif power_up.mask.colliderect(self.pad.mask):
-                index = powerup_index(power_up.type)
-                new_val = powerup_value(power_up.type, self.powerup_values[6])
+                power_up_type = power_up.type
+                if power_up_type == "random":
+                    power_up_type = choice([x for x in self.POWERUP_TYPES if x != "random"])
+                print(power_up_type)
+                index = powerup_index(power_up_type)
+                new_val = powerup_value(power_up_type)
                 self.powerup_values[index] = new_val
                 match index:
                     case 0:
