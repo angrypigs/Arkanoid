@@ -8,13 +8,13 @@ from random import choice, sample, randint
 import pygame
 from cryptography.fernet import Fernet
 
-from ball import Ball
-from pad import Pad
-from brick import Brick
-from powerup import PowerUp
-from bullet import Bullet
-from custom_timer import customTimer
-from utils import *
+from src.game_objects.ball import Ball
+from src.game_objects.pad import Pad
+from src.game_objects.brick import Brick
+from src.game_objects.powerup import PowerUp
+from src.game_objects.bullet import Bullet
+from src.custom_timer import customTimer
+from src.utils import *
 
 
 class Game:
@@ -86,8 +86,8 @@ class Game:
                 self.load_level(self.current_level)
             self.draw_game()
             self.balls_collisions()
-            pygame.display.flip()
             self.frame_counter = (self.frame_counter + 1) % self.FRAME_LIMIT
+            pygame.display.flip()
             self.clock.tick(self.FRAME_LIMIT)
 
     def change_game_mode(self, time: float, mode: int) -> None:
@@ -403,11 +403,4 @@ class Game:
             "bullet": pygame.image.load(res_path(os.path.join("assets/effects", "bullet.png")))
         }
         self.current_font = lambda s: pygame.font.Font("Roboto", s)
-        
-                
-
-
-
-if __name__ == "__main__":
-    Game()
         
