@@ -15,6 +15,7 @@ class Ball:
         self.mask = Rect(self.coords-(self.radius, self.radius), (self.radius*2, self.radius*2))
         self.glued = False
         self.offset = 0
+        self.burnball = False
         
     
     def draw(self, move: bool) -> None:

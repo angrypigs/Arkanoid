@@ -2,7 +2,7 @@ import sys
 from os import path
 
 POWERUP_DEFAULTS = (120, 4.5, False, False, False, False, 1, False, False)
-POWERUP_TIMES = (20, 20, 20, 6, 30, 15, 15, 0, 6)
+POWERUP_TIMES = (20, 20, 20, 6, 30, 15, 15, 0, 4.5)
 
 def res_path(rel_path: str) -> str:
     """
@@ -15,6 +15,9 @@ def res_path(rel_path: str) -> str:
     return path.join(base_path, rel_path)
 
 def powerup_index(powerup: str) -> int:
+    """
+    Return powerup's unified index
+    """
     match powerup:
         case "longer" | "short":
             return 0
@@ -38,6 +41,9 @@ def powerup_index(powerup: str) -> int:
             return -1
         
 def powerup_value(powerup: str) -> float|bool:
+    """
+    Return powerup's main value
+    """
     match powerup:
         case "blind" | "sticky" | "shield" | "gun" | "lifeup" | "burnball":
             return True
@@ -53,6 +59,9 @@ def powerup_value(powerup: str) -> float|bool:
             return 2
 
 def pad_index(length: float) -> str:
+    """
+    Return str from pad length needed to read images from dict
+    """
     match length:
         case 90:
             return "2"

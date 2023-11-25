@@ -33,6 +33,7 @@ class Game:
         self.pause = False
         self.game_mode = 2
         self.current_level = 0
+        self.ball_limit = 3
         self.frame_counter = 0
         self.FRAME_LIMIT = 120
         self.balls : list[Ball] = []
@@ -44,7 +45,10 @@ class Game:
         self.powerup_threads : list[customTimer] = [customTimer(POWERUP_TIMES[x], self.reset_powerup, [x, ]) 
                                                     for x in range(len(POWERUP_DEFAULTS))]
         self.powerup_values : list[int|bool] = list(POWERUP_DEFAULTS)
-        """0 - pad length, 1 - ball speed, 2 - border, 3 - shooting pad, 4 - glue, 5 - blindness, 6 - multiplier"""
+        """
+        0 - pad length, 1 - ball speed, 2 - border, 3 - shooting pad, 4 - glue, 5 - blindness, 
+        6 - multiplier, 7 - lifeup, 8 - burnball
+        """
         # init pygame window
         pygame.init()
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
@@ -67,6 +71,8 @@ class Game:
                         ball.glued = False
             if self.game_mode==2:
                 self.game_mode = 0
+                if self.ball_limit == 0:
+                    self.ball_limit = 3
                 if self.current_level==self.LEVELS_AMOUNT:
                     self.current_level = 1
                 else:
@@ -87,6 +93,9 @@ class Game:
         Thread(target=change, daemon=True).start()
 
     def reset_powerup(self, index: int) -> None:
+        """
+        Reset powerup at given index
+        """
         self.powerup_values[index] = POWERUP_DEFAULTS[index]
         match index:
             case 0:
@@ -106,6 +115,10 @@ class Game:
                 self.balls.sort(key=lambda y: y.coords.y)
                 while len(self.balls)>1:
                     self.balls.pop()
+            case 8:
+                for ball in self.balls:
+                    ball.burnball = False
+                    ball.image = self.images["balls"]["normal"]
 
     def brick_break(self, row: int, col: int, brick : Brick | None = None) -> None:
         """
@@ -146,6 +159,7 @@ class Game:
             self.reset_powerup(i)
         self.balls.clear()
         powerups = []
+        # place bricks
         for i in range(self.ROWS):
             for j in range(self.COLS):
                 self.bricks[i][j] = None
@@ -182,7 +196,7 @@ class Game:
                              (self.pad.x-self.pad.width//2, self.pad.FLAT))
         # gui draw
         self.screen.blit(self.images["game_gui"], (0, 0))
-        # 
+        # draw balls, bricks and powerups
         for ball in self.balls:
             ball.draw(not self.pause and self.game_mode==1)
             if ball.glued: ball.coords.x = self.pad.x+ball.offset*self.powerup_values[0]
@@ -206,7 +220,6 @@ class Game:
                 power_up_type = power_up.type
                 if power_up_type == "random":
                     power_up_type = choice([x for x in self.POWERUP_TYPES if x != "random"])
-                print(power_up_type)
                 index = powerup_index(power_up_type)
                 new_val = powerup_value(power_up_type)
                 self.powerup_values[index] = new_val
@@ -226,6 +239,13 @@ class Game:
                             coords = self.balls[0].coords
                             self.balls.append(Ball(self.screen, 10, coords.x, coords.y, randint(-80, -40), 
                                                    self.images["balls"]["normal"], self.powerup_values[1]))
+                    case 7:
+                        if self.ball_limit < 3:
+                            self.ball_limit += 1
+                    case 8:
+                        for ball in self.balls:
+                            ball.burnball = True
+                            ball.image = self.images["balls"]["burnball"]
 
                 self.powerup_threads[index].reset()
                 self.powerups.pop(i)
@@ -257,13 +277,18 @@ class Game:
                 ball.power.y *= -1
                 ball.coords.y = self.PAD_HEIGHT-ball.radius-5
             elif ball.coords.y>=self.HEIGHT-ball.radius:
-                if len(self.balls)==1:
+                if len(self.balls)==1 and self.game_mode!=0:
+                    self.ball_limit -= 1
                     self.game_mode = 0
-                    self.change_game_mode(3, 1)
-                    self.pad_x = self.WIDTH//2
-                    self.powerups.clear()
-                    self.balls.clear()
-                    self.balls.append(Ball(self.screen, 10, self.WIDTH//2, 600, -60, self.images["balls"]["normal"]))
+                    if self.ball_limit > 0:
+                        self.change_game_mode(3, 1)
+                        self.pad_x = self.WIDTH//2
+                        self.powerups.clear()
+                        self.balls.clear()
+                        self.balls.append(Ball(self.screen, 10, self.WIDTH//2, 600, -60, self.images["balls"]["normal"]))
+                    else:
+                        self.change_game_mode(3, 2)
+                        self.current_level = self.LEVELS_AMOUNT
                 else:
                     self.balls.remove(ball)
             # bricks collision
@@ -280,21 +305,22 @@ class Game:
                     overlap_x = circle_closest_x - ball.coords.x
                     overlap_y = circle_closest_y - ball.coords.y
                     if abs(overlap_x) < abs(overlap_y):
-                        if overlap_y > 0 and ball.power.y>0:
+                        if overlap_y > 0 and ball.power.y>0 and not ball.burnball:
                             ball.mask.bottom = brick.mask.top
                             ball.power.y *= -1
-                        elif overlap_y < 0 and ball.power.y<0:
+                        elif overlap_y < 0 and ball.power.y<0 and not ball.burnball:
                             ball.mask.top = brick.mask.bottom
                             ball.power.y *= -1
                     else:
-                        if overlap_x > 0 and ball.power.x>0:
+                        if overlap_x > 0 and ball.power.x>0 and not ball.burnball:
                             ball.mask.right = brick.mask.left
                             ball.power.x *= -1
-                        elif overlap_x < 0 and ball.power.x<0:
+                        elif overlap_x < 0 and ball.power.x<0 and not ball.burnball:
                             ball.mask.left = brick.mask.right
                             ball.power.x *= -1
                     # check for type of brick
                     self.brick_break(row, col, brick)
+        # check bullets collisions
         for bullet in self.bullets:
             if bullet:
                 col = bullet.COL
@@ -328,7 +354,10 @@ class Game:
             self.images["powerups"][img[:-4]] = pygame.image.load(res_path(os.path.join("assets/powerups", img)))
         self.POWERUP_TYPES = temp.copy()
 
-        self.images["balls"] = {"normal": pygame.image.load(res_path(os.path.join("assets/balls", "ball_normal.png")))}
+        self.images["balls"] = {
+            "normal": pygame.image.load(res_path(os.path.join("assets/balls", "ball_normal.png"))),
+            "burnball": pygame.image.load(res_path(os.path.join("assets/balls", "ball_burnball.png")))
+        }
         self.images["pads"] = {
             "0": {
                 "normal": pygame.image.load(res_path(os.path.join("assets/pads", "pad0_normal.png"))),
