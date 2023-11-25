@@ -2,11 +2,10 @@ from pygame import Rect
 
 class Pad:
 
-    def __init__(self, surf, width: int, height: int, color: tuple, flat: int, image) -> None:
+    def __init__(self, surf, width: int, height: int, flat: int, image) -> None:
         self.surf = surf
         self.HEIGHT = height
         self.width = width
-        self.COLOR = color
         self.FLAT = flat
         self.image = image
         self.x = 100

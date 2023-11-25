@@ -1,11 +1,12 @@
-import pygame
 import os
 import sys
 from time import sleep
 from threading import Thread
-from cryptography.fernet import Fernet
 from math import atan, pi, sqrt
 from random import choice, sample, randint
+
+import pygame
+from cryptography.fernet import Fernet
 
 from ball import Ball
 from pad import Pad
@@ -22,7 +23,7 @@ class Game:
         # init constants and variables
         self.WIDTH = 1000
         self.HEIGHT = 700
-        self.PAD_HEIGHT = self.HEIGHT//9*8
+        self.PAD_HEIGHT = self.HEIGHT // 9 * 8
         self.ROWS = 10
         self.COLS = 15
         self.KEY = b'1fM3z8hZKFlNgF5UAKpIjEkeU3SDxPenJP725BN-V9Q='
@@ -54,9 +55,12 @@ class Game:
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
         pygame.display.set_caption("Arkanoid")
         self.clock = pygame.time.Clock()
-        self.init_images()
+        self.init_assets()
         # add ball and pad
-        self.pad = Pad(self.screen, 120, 20, (150, 150, 110), self.PAD_HEIGHT, self.images["pads"]["0"]["normal"])
+        self.pad = Pad(self.screen, 
+                       120, 20, 
+                       self.PAD_HEIGHT, 
+                       self.images["pads"]["0"]["normal"])
         self.pad_x = self.WIDTH//2
         # main loop
         while self.run:
@@ -64,33 +68,33 @@ class Game:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.run = False
-                elif event.type==pygame.KEYDOWN and event.key==pygame.K_ESCAPE:
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     self.pause = not self.pause
-                elif event.type==pygame.KEYDOWN and event.key==pygame.K_SPACE:
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                     for ball in self.balls:
                         ball.glued = False
-            if self.game_mode==2:
+            if self.game_mode == 2:
                 self.game_mode = 0
                 if self.ball_limit == 0:
                     self.ball_limit = 3
-                if self.current_level==self.LEVELS_AMOUNT:
+                if self.current_level == self.LEVELS_AMOUNT:
                     self.current_level = 1
                 else:
                     self.current_level += 1
                 self.change_game_mode(3, 1)
-                self.pad_x = self.WIDTH//2
+                self.pad_x = self.WIDTH // 2
                 self.load_level(self.current_level)
             self.draw_game()
             self.balls_collisions()
             pygame.display.flip()
-            self.frame_counter = (self.frame_counter+1)%self.FRAME_LIMIT
+            self.frame_counter = (self.frame_counter + 1) % self.FRAME_LIMIT
             self.clock.tick(self.FRAME_LIMIT)
 
     def change_game_mode(self, time: float, mode: int) -> None:
         def change() -> None:
             sleep(time)
             self.game_mode = mode
-        Thread(target=change, daemon=True).start()
+        Thread(target = change, daemon = True).start()
 
     def reset_powerup(self, index: int) -> None:
         """
@@ -112,7 +116,7 @@ class Game:
                 for ball in self.balls:
                     ball.glued = False
             case 6:
-                self.balls.sort(key=lambda y: y.coords.y)
+                self.balls.sort(key = lambda b: b.coords.y)
                 while len(self.balls)>1:
                     self.balls.pop()
             case 8:
@@ -120,12 +124,13 @@ class Game:
                     ball.burnball = False
                     ball.image = self.images["balls"]["normal"]
 
-    def brick_break(self, row: int, col: int, brick : Brick | None = None) -> None:
+    def brick_break(self, row: int, col: int, 
+                    brick: Brick | None = None, burnball: bool = False) -> None:
         """
         Take action depending of brick type and checks if it holds an powerup
         """
         if brick is None: brick = self.bricks[row][col]
-        if brick.index in [1, 2, 3, 4, 5, 12]:
+        if brick.index in [1, 2, 3, 4, 5, 12] or (brick.index == 6 and burnball):
             self.bricks[row][col] = None
         elif brick.index in [9, 10, 11]:
             brick.index += 1
@@ -135,11 +140,11 @@ class Game:
             brick.image = self.images["bricks"][brick.index]
         elif brick.index == 7:
             self.bricks[row][col] = None
-            for i in [x for x in [[row, col-1], [row, col+1], [row-1, col], [row+1, col]]
-                        if 0<=x[0]<self.ROWS and 0<=x[1]<self.COLS and self.bricks[x[0]][x[1]]!=None]:
+            for i in [x for x in [[row, col - 1], [row, col + 1], [row - 1, col], [row + 1, col]]
+                        if 0 <= x[0] < self.ROWS and 0 <= x[1] < self.COLS and self.bricks[x[0]][x[1]] is not None]:
                 self.bricks[i[0]][i[1]] = None
         if [row, col] in self.powerups_places:
-            powerup = choice(self.POWERUP_TYPES)
+            powerup = choice(POWERUP_TYPES)
             self.powerups.append(PowerUp(self.screen, brick.X, brick.Y, self.HEIGHT, 
                                             powerup, self.images["powerups"][powerup]))
 
@@ -164,8 +169,8 @@ class Game:
             for j in range(self.COLS):
                 self.bricks[i][j] = None
                 if brick_list[i][j]:
-                    if brick_list[i][j]!=6: powerups.append([i, j])
-                    self.bricks[i][j] = Brick(self.screen, 20+j*64, 50+i*32, 
+                    if brick_list[i][j] != 6: powerups.append([i, j])
+                    self.bricks[i][j] = Brick(self.screen, 20 + j * 64, 50 + i * 32, 
                                               brick_list[i][j], self.images["bricks"][brick_list[i][j]])
         self.powerups_places.extend(sample(powerups, len(powerups)//4))
         self.balls.append(Ball(self.screen, 10, self.WIDTH//2, 600, -60, 
@@ -177,35 +182,45 @@ class Game:
         """
         # mouse position, shield and pad draw
         if self.powerup_values[2]: 
-            self.screen.blit(self.images["effects"]["shield"], (20, self.PAD_HEIGHT+15))
+            self.screen.blit(self.images["effects"]["shield"], (20, self.PAD_HEIGHT + 15))
         self.mouse_x, self.mouse_y = pygame.mouse.get_pos()
-        if not self.pause and self.game_mode==1: self.pad_x = self.mouse_x
-        self.pad.draw(pygame.math.clamp(self.pad_x, 20+self.powerup_values[0]//2, self.WIDTH-20-self.powerup_values[0]//2))
+        if not self.pause and self.game_mode == 1: 
+            self.pad_x = self.mouse_x
+        self.pad.draw(pygame.math.clamp(self.pad_x, 
+                                        20 + self.powerup_values[0] // 2, 
+                                        self.WIDTH - 20 - self.powerup_values[0] // 2))
         # bullets spawn and draw
         if self.powerup_values[3]:
-            if self.frame_counter%60==0:
-                self.bullets.append(Bullet(self.screen, self.pad.x-self.pad.width//2, 
-                                           self.PAD_HEIGHT, self.COLS, self.images["effects"]["bullet"]))
-                self.bullets.append(Bullet(self.screen, self.pad.x+self.pad.width//2, 
-                                           self.PAD_HEIGHT, self.COLS, self.images["effects"]["bullet"]))
+            if self.frame_counter % 60 == 0:
+                self.bullets.append(Bullet(self.screen, 
+                                           self.pad.x - self.pad.width // 2, 
+                                           self.PAD_HEIGHT, 
+                                           self.COLS, 
+                                           self.images["effects"]["bullet"]))
+                self.bullets.append(Bullet(self.screen, 
+                                           self.pad.x + self.pad.width // 2, 
+                                           self.PAD_HEIGHT, 
+                                           self.COLS, 
+                                           self.images["effects"]["bullet"]))
             for bullet in self.bullets:
-                bullet.draw(not self.pause and self.game_mode==1)
+                bullet.draw(not self.pause and self.game_mode == 1)
         # glue draw
         if self.powerup_values[4]: 
             self.screen.blit(self.images["pads"][pad_index(self.powerup_values[0])]["glue"], 
-                             (self.pad.x-self.pad.width//2, self.pad.FLAT))
+                             (self.pad.x - self.pad.width // 2, self.pad.FLAT))
         # gui draw
         self.screen.blit(self.images["game_gui"], (0, 0))
         # draw balls, bricks and powerups
         for ball in self.balls:
-            ball.draw(not self.pause and self.game_mode==1)
-            if ball.glued: ball.coords.x = self.pad.x+ball.offset*self.powerup_values[0]
+            ball.draw(not self.pause and self.game_mode == 1)
+            if ball.glued: 
+                ball.coords.x = self.pad.x + ball.offset * self.powerup_values[0]
         for row in range(self.ROWS):
             for col in range(self.COLS):
-                if self.bricks[row][col]!=None and not self.powerup_values[5]:
+                if self.bricks[row][col] is not None and not self.powerup_values[5]:
                     self.bricks[row][col].draw()
         for powerup in self.powerups:
-            powerup.draw(not self.pause and self.game_mode==1)
+            powerup.draw(not self.pause and self.game_mode == 1)
 
     def balls_collisions(self) -> None:
         """ 
@@ -219,26 +234,30 @@ class Game:
             elif power_up.mask.colliderect(self.pad.mask):
                 power_up_type = power_up.type
                 if power_up_type == "random":
-                    power_up_type = choice([x for x in self.POWERUP_TYPES if x != "random"])
+                    power_up_type = choice([x for x in POWERUP_TYPES if x != "random"])
                 index = powerup_index(power_up_type)
                 new_val = powerup_value(power_up_type)
                 self.powerup_values[index] = new_val
+                # check for type of powerup 
                 match index:
                     case 0:
-                        self.pad.image = self.images["pads"]["1" if new_val==160 else "2"]["shooting" if self.powerup_values[3] else "normal"]
+                        self.pad.image = self.images["pads"]["1" if new_val == 160 else "2"]["shooting" if self.powerup_values[3] else "normal"]
                         self.pad.width = self.powerup_values[0]
                     case 1:
                         for ball in self.balls:
-                            ball.power *= (new_val/ball.speed)
+                            ball.power *= (new_val / ball.speed)
                             ball.speed = new_val
                     case 3:
                         self.pad.image = self.images["pads"][pad_index(self.powerup_values[0])]["shooting"]
                     case 6:
-                        self.balls.sort(key=lambda y: y.coords.y)
+                        self.balls.sort(key=lambda b: b.coords.y)
                         for j in range(2):
                             coords = self.balls[0].coords
-                            self.balls.append(Ball(self.screen, 10, coords.x, coords.y, randint(-80, -40), 
-                                                   self.images["balls"]["normal"], self.powerup_values[1]))
+                            self.balls.append(Ball(self.screen, 10, 
+                                                   coords.x, coords.y, 
+                                                   randint(-80, -40), 
+                                                   self.images["balls"]["normal"], 
+                                                   self.powerup_values[1]))
                     case 7:
                         if self.ball_limit < 3:
                             self.ball_limit += 1
@@ -246,55 +265,60 @@ class Game:
                         for ball in self.balls:
                             ball.burnball = True
                             ball.image = self.images["balls"]["burnball"]
-
+                # start powerup counter and remove powerup
                 self.powerup_threads[index].reset()
                 self.powerups.pop(i)
         for ball in self.balls:
             # pad collision
-            if ball.mask.colliderect(self.pad.mask) and ball.power.y>=0:
-                offset = (ball.coords.x-self.mouse_x)/self.pad.width
-                angle = atan(ball.power.y/ball.power.x)
-                angle2 = (pi/2-abs(angle))*(1 if angle<0 else -1)/pi
+            if ball.mask.colliderect(self.pad.mask) and ball.power.y >= 0:
+                # calculate pad offset and ball's angle
+                offset = (ball.coords.x - self.mouse_x) / self.pad.width
+                angle = atan(ball.power.y / ball.power.x)
+                angle2 = (pi / 2 - abs(angle)) * (1 if angle < 0 else -1) / pi
+                # rotate ball and make sure to be not colliding anymore
                 ball.power.y *= -1
-                ball.power.rotate_ip(180*min(max(offset+angle2, -0.5), 0.5))
-                if ball.power.y>0: ball.power.y *= -1
+                ball.power.rotate_ip(180 * min(max(offset + angle2, -0.5), 0.5))
+                if ball.power.y > 0: ball.power.y *= -1
                 ball.coords += ball.power
                 ball.coords.y -= 5
                 if self.powerup_values[4]: 
                     ball.glued = True
                     ball.offset = offset
             # walls collision
-            if ball.radius+20>=ball.coords.x:
+            if ball.radius+20 >= ball.coords.x:
                 ball.power.x *= -1
                 ball.coords.x = ball.radius+25
-            elif ball.coords.x>=self.WIDTH-ball.radius-20:
+            elif ball.coords.x >= self.WIDTH - ball.radius - 20:
                 ball.power.x *= -1
-                ball.coords.x = self.WIDTH-ball.radius-25
-            if ball.radius+50>=ball.coords.y:
+                ball.coords.x = self.WIDTH - ball.radius - 25
+            if ball.radius + 50 >= ball.coords.y:
                 ball.power.y *= -1
-                ball.coords.y = ball.radius+55
-            elif ball.coords.y>=ball.radius+self.PAD_HEIGHT and self.powerup_values[2]:
+                ball.coords.y = ball.radius + 55
+            elif ball.coords.y >= ball.radius + self.PAD_HEIGHT and self.powerup_values[2]:
                 ball.power.y *= -1
-                ball.coords.y = self.PAD_HEIGHT-ball.radius-5
-            elif ball.coords.y>=self.HEIGHT-ball.radius:
-                if len(self.balls)==1 and self.game_mode!=0:
+                ball.coords.y = self.PAD_HEIGHT - ball.radius - 5
+            elif ball.coords.y >= self.HEIGHT - ball.radius:
+                if len(self.balls) == 1 and self.game_mode != 0:
                     self.ball_limit -= 1
                     self.game_mode = 0
                     if self.ball_limit > 0:
                         self.change_game_mode(3, 1)
-                        self.pad_x = self.WIDTH//2
+                        self.pad_x = self.WIDTH // 2
                         self.powerups.clear()
                         self.balls.clear()
-                        self.balls.append(Ball(self.screen, 10, self.WIDTH//2, 600, -60, self.images["balls"]["normal"]))
+                        self.balls.append(Ball(self.screen, 10, 
+                                               self.WIDTH // 2, 600, 
+                                               -60, 
+                                               self.images["balls"]["normal"]))
                     else:
                         self.change_game_mode(3, 2)
                         self.current_level = self.LEVELS_AMOUNT
                 else:
                     self.balls.remove(ball)
             # bricks collision
-            b, a = int(ball.coords.x-20)//64, int(ball.coords.y-50)//32
+            b, a = int(ball.coords.x - 20) // 64, int(ball.coords.y - 50) // 32
             cells = [[x, y] for x in range(a-1, a+2) for y in range(b-2, b+3) if
-                     0<=x<self.ROWS and 0<=y<self.COLS and self.bricks[x][y] is not None]
+                     0 <= x < self.ROWS and 0 <= y < self.COLS and self.bricks[x][y] is not None]
             for row, col in cells:
                 brick = self.bricks[row][col]
                 circle_closest_x = max(brick.X, min(ball.coords.x, brick.X + 64))
@@ -332,12 +356,14 @@ class Game:
                         break
             else: self.bullets.remove(bullet)
 
-        if not any(any(isinstance(b, Brick) and b.index!=6 for b in r) for r in self.bricks) and self.game_mode==1:
+        if not any(any(isinstance(b, Brick) and b.index != 6 for b in r) for r in self.bricks) and self.game_mode == 1:
             self.game_mode = 0
             self.change_game_mode(3, 2)
     
-    def init_images(self) -> None:
-        """Import game images to dict"""
+
+
+    def init_assets(self) -> None:
+        """Import game assets"""
         self.images = {"bricks": [], "powerups": {}}
         self.images["game_gui"] = pygame.image.load(res_path(os.path.join("assets/gui", "game_gui.png")))
         for img in os.listdir(res_path(f"assets{os.path.sep}bricks")):
@@ -345,14 +371,11 @@ class Game:
         self.images["bricks"] = sorted(self.images["bricks"], key=lambda x: int(x.lstrip("brick").rstrip(".png")))
         self.images["bricks"].insert(0, None)
         for i, img in enumerate(self.images["bricks"]):
-            if img!=None:
+            if img is not None:
                 self.images["bricks"][i] = pygame.image.load(res_path(os.path.join("assets/bricks", img)))
 
-        temp = []
         for img in os.listdir(res_path(f"assets{os.path.sep}powerups")):
-            temp.append(img[:-4])
             self.images["powerups"][img[:-4]] = pygame.image.load(res_path(os.path.join("assets/powerups", img)))
-        self.POWERUP_TYPES = temp.copy()
 
         self.images["balls"] = {
             "normal": pygame.image.load(res_path(os.path.join("assets/balls", "ball_normal.png"))),
@@ -379,6 +402,8 @@ class Game:
             "shield": pygame.image.load(res_path(os.path.join("assets/effects", "barrier.png"))),
             "bullet": pygame.image.load(res_path(os.path.join("assets/effects", "bullet.png")))
         }
+        self.current_font = lambda s: pygame.font.Font("Roboto", s)
+        
                 
 
 
