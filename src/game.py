@@ -20,6 +20,7 @@ from src.utils import *
 class Game:
 
     def __init__(self) -> None:
+        pygame.init()
         # init constants and variables
         self.WIDTH = 1000
         self.HEIGHT = 700
@@ -29,12 +30,14 @@ class Game:
         self.KEY = b'1fM3z8hZKFlNgF5UAKpIjEkeU3SDxPenJP725BN-V9Q='
         self.LEVELS_AMOUNT = len([img for img in os.listdir(res_path("levels")) 
                                   if img.startswith("level")])
+        self.current_font = pygame.font.Font(res_path(f"assets{sepr}fonts{sepr}Roboto-Regular.ttf"), 24)
         self.fernet = Fernet(self.KEY)
         self.run = True
         self.pause = False
         self.game_mode = 2
         self.current_level = 0
         self.ball_limit = 3
+        self.label_ball_amount = self.current_font.render(f"{self.ball_limit} x", True, (255, 255, 255))
         self.frame_counter = 0
         self.FRAME_LIMIT = 120
         self.balls : list[Ball] = []
@@ -51,7 +54,6 @@ class Game:
         6 - multiplier, 7 - lifeup, 8 - burnball
         """
         # init pygame window
-        pygame.init()
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
         pygame.display.set_caption("Arkanoid")
         self.clock = pygame.time.Clock()
@@ -77,6 +79,7 @@ class Game:
                 self.game_mode = 0
                 if self.ball_limit == 0:
                     self.ball_limit = 3
+                    self.label_ball_amount = self.current_font.render(f"{self.ball_limit} x", True, (255, 255, 255))
                 if self.current_level == self.LEVELS_AMOUNT:
                     self.current_level = 1
                 else:
@@ -208,8 +211,10 @@ class Game:
         if self.powerup_values[4]: 
             self.screen.blit(self.images["pads"][pad_index(self.powerup_values[0])]["glue"], 
                              (self.pad.x - self.pad.width // 2, self.pad.FLAT))
-        # gui draw
+        # draw gui
         self.screen.blit(self.images["game_gui"], (0, 0))
+        self.screen.blit(self.label_ball_amount, (self.WIDTH-106, 13))
+        self.screen.blit(self.images["balls"]["normal"], (self.WIDTH-60, 19))
         # draw balls, bricks and powerups
         for ball in self.balls:
             ball.draw(not self.pause and self.game_mode == 1)
@@ -261,6 +266,7 @@ class Game:
                     case 7:
                         if self.ball_limit < 3:
                             self.ball_limit += 1
+                            self.label_ball_amount = self.current_font.render(f"{self.ball_limit} x", True, (255, 255, 255))
                     case 8:
                         for ball in self.balls:
                             ball.burnball = True
@@ -284,6 +290,7 @@ class Game:
                 if self.powerup_values[4]: 
                     ball.glued = True
                     ball.offset = offset
+                    ball.coords.y = self.pad.FLAT-10
             # walls collision
             if ball.radius+20 >= ball.coords.x:
                 ball.power.x *= -1
@@ -300,6 +307,7 @@ class Game:
             elif ball.coords.y >= self.HEIGHT - ball.radius:
                 if len(self.balls) == 1 and self.game_mode != 0:
                     self.ball_limit -= 1
+                    self.label_ball_amount = self.current_font.render(f"{self.ball_limit} x", True, (255, 255, 255))
                     self.game_mode = 0
                     if self.ball_limit > 0:
                         self.change_game_mode(3, 1)
@@ -366,7 +374,7 @@ class Game:
         """Import game assets"""
         self.images = {"bricks": [], "powerups": {}}
         self.images["game_gui"] = pygame.image.load(res_path(os.path.join("assets/gui", "game_gui.png")))
-        for img in os.listdir(res_path(f"assets{os.path.sep}bricks")):
+        for img in os.listdir(res_path(f"assets{sepr}bricks")):
             self.images["bricks"].append(img)
         self.images["bricks"] = sorted(self.images["bricks"], key=lambda x: int(x.lstrip("brick").rstrip(".png")))
         self.images["bricks"].insert(0, None)
@@ -374,7 +382,7 @@ class Game:
             if img is not None:
                 self.images["bricks"][i] = pygame.image.load(res_path(os.path.join("assets/bricks", img)))
 
-        for img in os.listdir(res_path(f"assets{os.path.sep}powerups")):
+        for img in os.listdir(res_path(f"assets{sepr}powerups")):
             self.images["powerups"][img[:-4]] = pygame.image.load(res_path(os.path.join("assets/powerups", img)))
 
         self.images["balls"] = {
@@ -402,5 +410,5 @@ class Game:
             "shield": pygame.image.load(res_path(os.path.join("assets/effects", "barrier.png"))),
             "bullet": pygame.image.load(res_path(os.path.join("assets/effects", "bullet.png")))
         }
-        self.current_font = lambda s: pygame.font.Font("Roboto", s)
+        
         

@@ -6,6 +6,8 @@ POWERUP_TYPES = ("blind", "burnball", "fast", "gun", "lifeup", "longer", "multip
 POWERUP_DEFAULTS = (120, 4.5, False, False, False, False, 1, False, False)
 POWERUP_TIMES = (20, 20, 20, 6, 30, 15, 15, 0, 4.5)
 
+sepr = path.sep
+
 def res_path(rel_path: str) -> str:
     """
     Return path to file modified by auto_py_to_exe path if packed to exe already
