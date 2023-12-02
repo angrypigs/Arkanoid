@@ -1,11 +1,6 @@
 import sys
 from os import path
 
-POWERUP_TYPES = ("blind", "burnball", "fast", "gun", "lifeup", "longer", "multiply",
-                 "random", "shield", "short", "slow", "sticky")
-POWERUP_DEFAULTS = (120, 4.5, False, False, False, False, 1, False, False)
-POWERUP_TIMES = (20, 20, 20, 6, 30, 15, 15, 0, 4.5)
-
 sepr = path.sep
 
 def res_path(rel_path: str) -> str:
@@ -17,6 +12,17 @@ def res_path(rel_path: str) -> str:
     except Exception:
         base_path = sys.path[0]
     return path.join(base_path, rel_path)
+
+def clamp(val: float, bottom: float, top: float) -> float:
+    """
+    Clamp val between bottom and top values
+    """
+    return max(min(val, top), bottom)
+
+POWERUP_TYPES = ("blind", "burnball", "fast", "gun", "lifeup", "longer", "multiply",
+                 "random", "shield", "short", "slow", "sticky")
+POWERUP_DEFAULTS = (120, 4.5, False, False, False, False, 1, False, False)
+POWERUP_TIMES = (20, 20, 20, 6, 30, 15, 15, 0, 4.5)
 
 def powerup_index(powerup: str) -> int:
     """

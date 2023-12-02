@@ -13,7 +13,7 @@ from src.game_objects.pad import Pad
 from src.game_objects.brick import Brick
 from src.game_objects.powerup import PowerUp
 from src.game_objects.bullet import Bullet
-from src.custom_timer import customTimer
+from src.custom_counter import CustomCounter
 from src.utils import *
 
 
@@ -46,8 +46,9 @@ class Game:
         self.bullets : list[Bullet] = []
         self.powerups_places : list[list[int]] = []
         self.powerups : list[PowerUp] = []
-        self.powerup_threads : list[customTimer] = [customTimer(POWERUP_TIMES[x], self.reset_powerup, [x, ]) 
-                                                    for x in range(len(POWERUP_DEFAULTS))]
+        self.powerup_threads : list[CustomCounter] = [CustomCounter(
+            self.reset_powerup, self.FRAME_LIMIT, POWERUP_TIMES[i], index=i
+            ) for i in range(len(POWERUP_DEFAULTS))]
         self.powerup_values : list[int|bool] = list(POWERUP_DEFAULTS)
         """
         0 - pad length, 1 - ball speed, 2 - border, 3 - shooting pad, 4 - glue, 5 - blindness, 
@@ -65,13 +66,17 @@ class Game:
                        self.images["pads"]["0"]["normal"])
         self.pad_x = self.WIDTH//2
         # main loop
+        pygame.event.set_grab(True)
         while self.run:
             self.screen.fill((0, 0, 0))
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
+                    pygame.event.set_grab(False)
                     self.run = False
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     self.pause = not self.pause
+                    pygame.event.set_grab(not self.pause)
+                    pygame.mouse.set_visible(self.pause)
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                     for ball in self.balls:
                         ball.glued = False
@@ -90,6 +95,10 @@ class Game:
             self.draw_game()
             self.balls_collisions()
             self.frame_counter = (self.frame_counter + 1) % self.FRAME_LIMIT
+            if not self.pause and self.game_mode == 1:
+                for counter in self.powerup_threads:
+                    if counter:
+                        counter.update()
             pygame.display.flip()
             self.clock.tick(self.FRAME_LIMIT)
 
@@ -272,7 +281,7 @@ class Game:
                             ball.burnball = True
                             ball.image = self.images["balls"]["burnball"]
                 # start powerup counter and remove powerup
-                self.powerup_threads[index].reset()
+                self.powerup_threads[index].start()
                 self.powerups.pop(i)
         for ball in self.balls:
             # pad collision
@@ -283,7 +292,7 @@ class Game:
                 angle2 = (pi / 2 - abs(angle)) * (1 if angle < 0 else -1) / pi
                 # rotate ball and make sure to be not colliding anymore
                 ball.power.y *= -1
-                ball.power.rotate_ip(180 * min(max(offset + angle2, -0.5), 0.5))
+                ball.power.rotate_ip(180 * clamp(offset + angle2, -0.5, 0.5))
                 if ball.power.y > 0: ball.power.y *= -1
                 ball.coords += ball.power
                 ball.coords.y -= 5
@@ -329,8 +338,8 @@ class Game:
                      0 <= x < self.ROWS and 0 <= y < self.COLS and self.bricks[x][y] is not None]
             for row, col in cells:
                 brick = self.bricks[row][col]
-                circle_closest_x = max(brick.X, min(ball.coords.x, brick.X + 64))
-                circle_closest_y = max(brick.Y, min(ball.coords.y, brick.Y + 32))
+                circle_closest_x = clamp(ball.coords.x, brick.X, brick.X + 64)
+                circle_closest_y = clamp(ball.coords.y, brick.Y, brick.Y + 32)
                 dist = sqrt((ball.coords.x - circle_closest_x) ** 2 + (ball.coords.y - circle_closest_y) ** 2)
                 if dist < ball.radius:
                     # check for side of collision
