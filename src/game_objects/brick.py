@@ -8,6 +8,9 @@ class Brick:
         self.Y = y
         self.image = image
         self.index = index
+        
+    def __str__(self) -> str:
+        return f"Brick x:{self.X} y:{self.Y} index:{self.index}"
 
     def draw(self) -> None:
         self.mask = Rect(self.X, self.Y, 64, 32)

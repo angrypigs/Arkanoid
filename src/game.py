@@ -76,7 +76,6 @@ class Game:
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     self.pause = not self.pause
                     pygame.event.set_grab(not self.pause)
-                    pygame.mouse.set_visible(self.pause)
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                     for ball in self.balls:
                         ball.glued = False
@@ -141,7 +140,9 @@ class Game:
         """
         Take action depending of brick type and checks if it holds an powerup
         """
+        print(brick)
         if brick is None: brick = self.bricks[row][col]
+        self.sounds["brick_break"].play()
         if brick.index in [1, 2, 3, 4, 5, 12] or (brick.index == 6 and burnball):
             self.bricks[row][col] = None
         elif brick.index in [9, 10, 11]:
@@ -381,6 +382,9 @@ class Game:
 
     def init_assets(self) -> None:
         """Import game assets"""
+        self.sounds = {
+            "brick_break": pygame.mixer.Sound(res_path(os.path.join("assets/sounds", "brick_break.wav")))
+        }
         self.images = {"bricks": [], "powerups": {}}
         self.images["game_gui"] = pygame.image.load(res_path(os.path.join("assets/gui", "game_gui.png")))
         for img in os.listdir(res_path(f"assets{sepr}bricks")):

@@ -18,7 +18,7 @@ class CustomCounter:
         self.flag = False
         self.fps = _fps
         self.time = _time
-        self.limit = _time*_fps
+        self.limit = _time * _fps
         
     def __bool__(self) -> bool:
         return self.flag
@@ -31,7 +31,7 @@ class CustomCounter:
             self.time = time
         self.counter = 0
         self.flag = True
-        self.limit = int(self.time*self.fps)
+        self.limit = int(self.time * self.fps)
     
     def update(self) -> None:
         """
